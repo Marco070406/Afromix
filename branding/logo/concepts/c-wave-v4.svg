@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- C · Onde : deux demi-anneaux (deux platines) enchaînés en une seule onde — la transition du mix.
+       Contour unique : arc ext. gauche, arc int. droit, arc ext. droit, arc int. gauche. -->
+  <path fill="#000" d="
+    M20 128A64 64 0 0 1 148 128A24 24 0 0 0 196 128H236A64 64 0 0 1 108 128A24 24 0 0 0 60 128Z"/>
+</svg>

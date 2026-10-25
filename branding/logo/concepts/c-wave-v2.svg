@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- C · Onde : deux demi-vinyles enchaînés forment une onde — le mix, la transition -->
+  <path fill="#000" fill-rule="evenodd" d="
+    M20 128A68 68 0 0 1 156 128Z
+    M100 128A68 68 0 0 0 236 128Z
+    M52 128A36 36 0 0 1 124 128H112A24 24 0 0 0 64 128Z
+    M132 128A36 36 0 0 0 204 128H192A24 24 0 0 1 144 128Z"/>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- A · Pick-EQ : peigne afro dont les dents sont des barres d'égaliseur -->
+  <path fill="#000" fill-rule="evenodd" d="
+    M58 72a10 10 0 0 1 20 0V148H58Z
+    M93 40a10 10 0 0 1 20 0V148H93Z
+    M128 24a10 10 0 0 1 20 0V148H128Z
+    M163 56a10 10 0 0 1 20 0V148H163Z
+    M198 88a10 10 0 0 1 20 0V148H198Z
+    M58 148H218V164a12 12 0 0 1-12 12H70a12 12 0 0 1-12-12Z
+    M138 172a30 30 0 1 1-20 0Z M114 200a14 14 0 1 0 28 0a14 14 0 1 0-28 0Z"/>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- C · Onde : deux demi-anneaux (deux platines) enchaînés en une onde continue — la transition du mix -->
+  <path fill="#000" d="
+    M24 136A64 64 0 0 1 152 136H112A24 24 0 0 0 64 136Z
+    M104 120A64 64 0 0 0 232 120H192A24 24 0 0 1 144 120Z"/>
+  <path fill="#000" d="M112 120H152V136H104V120Z"/>
+</svg>

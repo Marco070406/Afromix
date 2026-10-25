@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- A · Pick-EQ : peigne afro (dents + poignée en boucle) ; les dents ont des hauteurs d'égaliseur.
+       Une seule silhouette, poignée évidée (evenodd), aucun chevauchement. -->
+  <path fill="#000" fill-rule="evenodd" d="
+    M50 140V76a8 8 0 0 1 16 0V140H78V52a8 8 0 0 1 16 0V140H106V36a8 8 0 0 1 16 0V140
+    H134V28a8 8 0 0 1 16 0V140H162V44a8 8 0 0 1 16 0V140H190V68a8 8 0 0 1 16 0V140
+    V164a8 8 0 0 1-8 8H160V204a28 28 0 0 1-28 28H124a28 28 0 0 1-28-28V172H58a8 8 0 0 1-8-8Z
+    M116 184H140V204a8 8 0 0 1-8 8H124a8 8 0 0 1-8-8Z"/>
+</svg>

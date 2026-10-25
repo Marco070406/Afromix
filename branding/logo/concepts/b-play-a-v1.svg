@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- B · Play-A : un A sans barre, dont la barre est un bouton lecture -->
+  <path fill="#000" stroke="#000" stroke-width="16" stroke-linejoin="round"
+    d="M128 36L224 220H186L128 110L70 220H32Z"/>
+  <path fill="#000" stroke="#000" stroke-width="10" stroke-linejoin="round"
+    d="M120 158V202L156 180Z"/>
+</svg>

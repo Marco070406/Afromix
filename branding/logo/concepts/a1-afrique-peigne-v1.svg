@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- A1 · L'Afrique devient un peigne afro : dents au nord (hauteurs d'égaliseur données par la côte),
+       corps au centre, poignée évidée au sud. Construction : continent en clipPath. -->
+  <defs><clipPath id="af"><path d="M72 42C86 37 112 35 128 40L140 34L150 46L162 48L182 44L188 62L200 86L210 100L226 104L220 118L206 138L198 160L194 178L184 192L176 210L160 230L150 236L140 230L132 212L126 190L122 168L118 150L112 136L96 132L80 130L62 124L48 112L38 98L40 80L52 62Z"/></clipPath></defs>
+  <g clip-path="url(#af)" fill="#000">
+    <path d="M38 0h18v110H38Z M66 0h18v110H66Z M94 0h18v110H94Z M122 0h18v110H122Z M150 0h18v110H150Z M178 0h18v110H178Z M206 0h22v110H206Z"/>
+    <path fill-rule="evenodd" d="M0 104H256V256H0Z M143 197a9 9 0 0 1 18 0v10a9 9 0 0 1-18 0Z"/>
+  </g>
+  <path fill="#000" d="M208 176c5-2 9 2 8 9l-4 18c-2 6-8 7-10 2c-2-6 0-21 6-29Z"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- C · Remix : un disque dont un quart a glissé — le remix -->
+  <path fill="#000" fill-rule="evenodd"
+    d="M120 136H220A100 100 0 1 1 120 36Z M120 136m-14 0a14 14 0 1 0 28 0a14 14 0 1 0-28 0Z"/>
+  <path fill="#000" d="M136 120V20A100 100 0 0 1 236 120Z"/>
+</svg>

@@ -1,0 +1,704 @@
+// AfroMix - Prisma Schema
+// Docs: https://www.prisma.io/docs
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Prisma 7: l'URL est déclarée dans prisma.config.ts, pas ici
+}
+
+// ─────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────
+
+enum Role {
+  USER
+  ARTIST
+  ADMIN
+}
+
+enum MixGenre {
+  AFROBEATS
+  AMAPIANO
+  AFRO_HOUSE
+  AFRO_SOUL
+  BONGO_FLAVA
+  DANCEHALL
+  HIGHLIFE
+  KIZOMBA
+  KUDURO
+  NDOMBOLO
+  RUMBA
+  SOCA
+  OTHER
+}
+
+/// Type de contenu DJ/Live
+enum MixType {
+  DJ_MIX      // Mix studio classique
+  DJ_SET      // Set enregistré en club/festival
+  LIVE_SET    // Performance live
+  PODCAST     // Émission/podcast musical
+}
+
+/// Type de production musicale
+enum TrackType {
+  SINGLE
+  EP
+  ALBUM_TRACK
+  INSTRUMENTAL
+  REMIX
+  FREESTYLE
+  LIVE
+}
+
+enum ContentStatus {
+  DRAFT
+  PROCESSING
+  PUBLISHED
+  UNLISTED
+  REMOVED
+}
+
+enum LikeTargetType {
+  MIX
+  TRACK
+  ALBUM
+  PLAYLIST
+  COMMENT
+}
+
+enum NotificationType {
+  NEW_FOLLOWER
+  NEW_LIKE
+  NEW_COMMENT
+  NEW_MIX
+  NEW_TRACK
+  SYSTEM
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  LABEL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum ReportReason {
+  SPAM
+  HATE_SPEECH
+  COPYRIGHT
+  ADULT_CONTENT
+  MISINFORMATION
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  DISMISSED
+  ACTION_TAKEN
+}
+
+enum StreamQuality {
+  LOW
+  MEDIUM
+  HIGH
+  LOSSLESS
+}
+
+enum VerificationStatus {
+  UNVERIFIED   // jamais demandé
+  PENDING      // demande en cours de traitement
+  VERIFIED     // vérifié par l'équipe AfroMix
+  REJECTED     // demande refusée
+}
+
+enum EventStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─────────────────────────────────────────
+// User & Profiles
+// ─────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  role          Role     @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  // Relations
+  profile        Profile?
+  artistProfile  ArtistProfile?
+  playlists      Playlist[]
+  followings     Follow[]       @relation("Follower")
+  followers      Follow[]       @relation("Following")
+  likes          Like[]
+  comments       Comment[]
+  streamEvents   StreamEvent[]
+  subscription   Subscription?
+  payments       Payment[]
+  notifications      Notification[]
+  reports            Report[]            @relation("Reporter")
+  moderatedReports   Report[]            @relation("Moderator")
+  oauthAccounts      OAuthAccount[]
+  emailVerifications EmailVerification[]
+  passwordResets     PasswordReset[]
+  auditLogs          AuditLog[]
+  eventsCreated      Event[]             @relation("eventsCreated")
+  bookingInquiriesSent BookingInquiry[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  displayName String
+  bio         String?
+  avatarUrl   String?
+  country     String?
+  city        String?
+  website     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model ArtistProfile {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  slug               String             @unique
+  stageName          String
+  bio                String?
+  avatarUrl          String?
+  bannerUrl          String?
+  country            String?            // ISO 3166-1 alpha-2
+  city               String?
+  website            String?
+  // Réseaux sociaux
+  instagram          String?
+  soundcloud         String?
+  twitter            String?
+  youtube            String?
+  tiktok             String?
+  spotify            String?
+  // Genres musicaux (tableau libre, ex: ["AFROBEATS", "AMAPIANO"])
+  genres             String[]           @default([])
+  // Contact & Booking
+  bookingEmail       String?
+  bookingPhone       String?            // WhatsApp / Téléphone avec indicatif
+  bookingNotes       String?            // Prestations, tarifs indicatifs, conditions
+  availableForBooking Boolean           @default(true)
+  // Vérification
+  verified           Boolean            @default(false)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  verificationNote   String?            // note interne pour l'admin
+  // Stats dénormalisées
+  followerCount      Int                @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mixes            Mix[]
+  tracks           Track[]
+  albums           Album[]
+  events           Event[]
+  bookingInquiries BookingInquiry[]
+
+  @@index([slug])
+  @@index([verificationStatus])
+  @@index([country])
+  @@map("artist_profiles")
+}
+
+model BookingInquiry {
+  id          String    @id @default(cuid())
+  artistId    String
+  senderId    String?
+  senderName  String
+  senderEmail String
+  senderPhone String?
+  eventType   String    // "CLUB" | "FESTIVAL" | "WEDDING" | "PRIVATE" | "CONCERT" | "OTHER"
+  eventDate   DateTime?
+  eventCity   String?
+  budget      String?
+  message     String
+  status      String    @default("PENDING") // "PENDING" | "READ" | "ACCEPTED" | "DECLINED"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  artist ArtistProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  sender User?         @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([artistId])
+  @@map("booking_inquiries")
+}
+
+model OAuthAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String   // "google" | "facebook" | "apple"
+  providerUserId String
+  accessToken    String?
+  refreshToken   String?
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@map("oauth_accounts")
+}
+
+// ─────────────────────────────────────────
+// Auth tokens: email verification + password reset
+// ─────────────────────────────────────────
+
+/// Token envoyé par email pour vérifier l'adresse à l'inscription
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verifications")
+}
+
+/// Token envoyé par email pour réinitialiser le mot de passe
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_resets")
+}
+
+// ─────────────────────────────────────────
+// Content: Mix, Track, Album
+// ─────────────────────────────────────────
+
+model Mix {
+  id            String        @id @default(cuid())
+  artistId      String
+  title         String
+  slug          String        @unique
+  description   String?
+  coverUrl      String?
+  audioKey      String?       // S3/R2 object key
+  audioUrl      String?       // CDN URL
+  durationSec   Int?
+  genre         MixGenre      @default(OTHER)
+  mixType       MixType       @default(DJ_MIX)
+  tags          String[]
+  status        ContentStatus @default(DRAFT)
+  playCount     Int           @default(0)
+  likeCount     Int           @default(0)
+  commentCount  Int           @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  artist       ArtistProfile  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  tracklist    TracklistItem[]
+  likes        Like[]
+  comments     Comment[]
+  streamEvents StreamEvent[]
+  playlistItems PlaylistItem[]
+
+  @@index([artistId])
+  @@index([slug])
+  @@index([genre])
+  @@index([mixType])
+  @@index([status, publishedAt])
+  @@map("mixes")
+}
+
+model Track {
+  id           String        @id @default(cuid())
+  artistId     String
+  albumId      String?
+  title        String
+  slug         String        @unique
+  description  String?
+  audioKey     String?
+  audioUrl     String?
+  coverUrl     String?
+  durationSec  Int?
+  genre        MixGenre      @default(OTHER)
+  trackType    TrackType     @default(SINGLE)
+  tags         String[]
+  bpm          Int?
+  key          String?       // Musical key (e.g. "Am", "F#")
+  lyrics       String?
+  status       ContentStatus @default(DRAFT)
+  playCount    Int           @default(0)
+  likeCount    Int           @default(0)
+  commentCount Int           @default(0)
+  publishedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  artist        ArtistProfile  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  album         Album?         @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  tracklistItems TracklistItem[]
+  likes         Like[]
+  comments      Comment[]
+  streamEvents  StreamEvent[]
+  playlistItems PlaylistItem[]
+
+  @@index([artistId])
+  @@index([albumId])
+  @@index([slug])
+  @@index([genre])
+  @@index([status, publishedAt])
+  @@map("tracks")
+}
+
+model Album {
+  id          String        @id @default(cuid())
+  artistId    String
+  title       String
+  slug        String        @unique
+  description String?
+  coverUrl    String?
+  genre       MixGenre      @default(OTHER)
+  tags        String[]
+  releaseDate DateTime?
+  status      ContentStatus @default(DRAFT)
+  trackCount  Int           @default(0)  // dénormalisé
+  likeCount   Int           @default(0)
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  artist ArtistProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  tracks Track[]
+
+  @@index([artistId])
+  @@index([slug])
+  @@index([status, publishedAt])
+  @@map("albums")
+}
+
+/// Items in a mix tracklist (ordered list of tracks inside a mix)
+model TracklistItem {
+  id       String @id @default(cuid())
+  mixId    String
+  trackId  String
+  position Int
+  startSec Int?   // timestamp in the mix where this track begins
+
+  mix   Mix   @relation(fields: [mixId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([mixId, position])
+  @@index([mixId])
+  @@map("tracklist_items")
+}
+
+// ─────────────────────────────────────────
+// Playlists
+// ─────────────────────────────────────────
+
+model Playlist {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  coverUrl    String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items PlaylistItem[]
+
+  @@index([userId])
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id         String   @id @default(cuid())
+  playlistId String
+  mixId      String?
+  trackId    String?
+  position   Int
+  addedAt    DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  mix      Mix?     @relation(fields: [mixId], references: [id], onDelete: Cascade)
+  track    Track?   @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, position])
+  @@index([playlistId])
+  @@map("playlist_items")
+}
+
+// ─────────────────────────────────────────
+// Social: Follow, Like, Comment
+// ─────────────────────────────────────────
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("Follower",  fields: [followerId],  references: [id], onDelete: Cascade)
+  following User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model Like {
+  id         String         @id @default(cuid())
+  userId     String
+  targetType LikeTargetType
+  mixId      String?
+  trackId    String?
+  createdAt  DateTime       @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mix   Mix?   @relation(fields: [mixId],   references: [id], onDelete: Cascade)
+  track Track? @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, mixId])
+  @@unique([userId, targetType, trackId])
+  @@index([userId])
+  @@map("likes")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  userId    String
+  mixId     String?
+  trackId   String?
+  parentId  String?
+  content   String
+  likeCount Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mix     Mix?      @relation(fields: [mixId],   references: [id], onDelete: Cascade)
+  track   Track?    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([mixId])
+  @@index([trackId])
+  @@index([userId])
+  @@map("comments")
+}
+
+// ─────────────────────────────────────────
+// Analytics: StreamEvent
+// ─────────────────────────────────────────
+
+model StreamEvent {
+  id         String        @id @default(cuid())
+  userId     String?
+  mixId      String?
+  trackId    String?
+  quality    StreamQuality @default(MEDIUM)
+  durationMs Int           // how long they actually listened
+  ipHash     String?       // hashed IP for deduplication
+  country    String?
+  city       String?
+  device     String?
+  createdAt  DateTime      @default(now())
+
+  user  User?  @relation(fields: [userId],  references: [id], onDelete: SetNull)
+  mix   Mix?   @relation(fields: [mixId],   references: [id], onDelete: Cascade)
+  track Track? @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([mixId, createdAt])
+  @@index([trackId, createdAt])
+  @@index([userId])
+  @@index([country])
+  @@map("stream_events")
+}
+
+// ─────────────────────────────────────────
+// Monetisation: Subscription, Payment
+// ─────────────────────────────────────────
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  tier                 SubscriptionTier   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String
+  stripePaymentId   String?       @unique
+  amount            Int           // in cents
+  currency          String        @default("EUR")
+  status            PaymentStatus @default(PENDING)
+  description       String?
+  createdAt         DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?
+  imageUrl  String?
+  linkUrl   String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────
+// Moderation: Report
+// ─────────────────────────────────────────
+
+model Report {
+  id             String       @id @default(cuid())
+  reporterId     String
+  targetType     String       // "MIX" | "TRACK" | "USER" | "COMMENT" | "ALBUM"
+  targetId       String
+  reason         ReportReason
+  details        String?
+  status         ReportStatus @default(PENDING)
+  // Modération
+  moderatorId    String?      // userId de l'admin qui a traité
+  moderatorNote  String?      // note interne
+  resolvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  reporter  User  @relation("Reporter",  fields: [reporterId],  references: [id], onDelete: Cascade)
+  moderator User? @relation("Moderator", fields: [moderatorId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([targetType, targetId])
+  @@index([moderatorId])
+  @@map("reports")
+}
+
+// ─────────────────────────────────────────
+// Audit Log — historique des actions admin
+// ─────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String   // userId de l'admin ayant effectué l'action
+  action     String   // ex: "SUSPEND_USER", "VERIFY_ARTIST", "REMOVE_CONTENT"
+  targetType String   // "USER" | "MIX" | "TRACK" | "ALBUM" | "ARTIST" | "REPORT"
+  targetId   String
+  details    Json?    // contexte additionnel (ancien statut, raison, etc.)
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────
+// Events (IRL DJ events)
+// ─────────────────────────────────────────
+
+model Event {
+  id          String   @id @default(cuid())
+  artistId    String?
+  createdById String?
+  title       String
+  description String?
+  venue       String?
+  city        String?
+  country     String?
+  startAt     DateTime
+  endAt       DateTime?
+  ticketUrl   String?
+  coverUrl    String?
+  status      EventStatus @default(APPROVED)
+  rejectionReason String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  artist    ArtistProfile? @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  createdBy User?          @relation("eventsCreated", fields: [createdById], references: [id])
+
+  @@index([artistId])
+  @@index([startAt])
+  @@index([createdById])
+  @@index([status])
+  @@map("events")
+}
