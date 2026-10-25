@@ -98,8 +98,10 @@ function ProfileContent() {
 
   const handleResendVerification = async () => {
     try {
-      await authApi.resendVerification();
-      toast.success(language === "fr" ? "Email de vérification envoyé !" : "Verification email sent!");
+      if (!user?.email) return;
+      await authApi.resendVerification(user.email);
+      toast.success(language === "fr" ? "Code de vérification envoyé !" : "Verification code sent!");
+      router.push(`/verify-email?email=${encodeURIComponent(user.email)}`);
     } catch {
       toast.error(language === "fr" ? "Impossible d'envoyer l'email" : "Could not send email");
     }

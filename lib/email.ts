@@ -49,7 +49,7 @@ export interface SendResult {
 
 // ─── Templates ───────────────────────────────────────────────────────────────
 
-function verifyEmailHtml(displayName: string, verifyUrl: string): string {
+function verifyEmailHtml(displayName: string, code: string): string {
   return `
 <!DOCTYPE html>
 <html lang="fr">
@@ -67,18 +67,16 @@ function verifyEmailHtml(displayName: string, verifyUrl: string): string {
         <tr><td style="padding:40px 32px">
           <h2 style="margin:0 0 16px;color:#fff;font-size:20px">Bienvenue, ${esc(displayName)}</h2>
           <p style="margin:0 0 24px;color:#a1a1aa;font-size:15px;line-height:1.6">
-            Confirme ton adresse email pour activer ton compte AfroMix et accéder à toutes les fonctionnalités.
+            Voici ton code pour confirmer ton adresse email et activer ton compte AfroMix :
           </p>
-          <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center" style="padding:8px 0 32px">
-            <a href="${esc(verifyUrl)}" style="display:inline-block;background:linear-gradient(135deg,#9333EA,#DB2777);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:600">
-              Vérifier mon email
-            </a>
+          <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center" style="padding:8px 0 28px">
+            <div style="display:inline-block;background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:18px 28px;font-family:'SFMono-Regular',Consolas,'Liberation Mono',monospace;font-size:34px;font-weight:700;letter-spacing:10px;color:#fff">
+              ${esc(code)}
+            </div>
           </td></tr></table>
-          <p style="margin:0 0 8px;color:#71717a;font-size:13px">
-            Ce lien expire dans <strong style="color:#a1a1aa">24 heures</strong>.
-          </p>
-          <p style="margin:0;color:#71717a;font-size:12px;word-break:break-all">
-            Ou copie ce lien : <a href="${esc(verifyUrl)}" style="color:#8B5CF6">${esc(verifyUrl)}</a>
+          <p style="margin:0;color:#71717a;font-size:13px">
+            Ce code expire dans <strong style="color:#a1a1aa">10 minutes</strong>. Ne le partage avec personne :
+            l'équipe AfroMix ne te le demandera jamais.
           </p>
         </td></tr>
         <!-- Footer -->
@@ -190,19 +188,18 @@ async function sendMail(
 export async function sendVerificationEmail(
   to: string,
   displayName: string,
-  token: string
+  code: string
 ): Promise<SendResult> {
-  const verifyUrl = `${APP_URL}/api/v1/auth/verify-email/${token}`;
-
   if (!process.env.SMTP_USER && !process.env.RESEND_API_KEY) {
-    console.log(`\n[DEV] Email verification URL for ${to}:\n${verifyUrl}\n`);
+    // Développement sans SMTP : le code s'affiche dans la console du serveur
+    if (process.env.NODE_ENV !== "production") console.log(`\n[DEV] Code de vérification pour ${to} : ${code}\n`);
     return { ok: true };
   }
 
   return sendMail(
     to,
-    "Vérifie ton adresse email — AfroMix",
-    verifyEmailHtml(displayName, verifyUrl),
+    `${code} — ton code de vérification AfroMix`,
+    verifyEmailHtml(displayName, code),
     "Verification email"
   );
 }

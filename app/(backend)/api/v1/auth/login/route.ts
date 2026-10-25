@@ -38,6 +38,13 @@ export async function POST(request: Request): Promise<Response> {
   } catch (err) {
     const e = err as Error & { status?: number };
     if (e.status === 401) return unauthorized(e.message);
+    if (e.status === 403 && (e as { code?: string }).code === "EMAIL_NOT_VERIFIED") {
+      // Le client redirige vers l'écran de saisie du code (un nouveau code vient d'être envoyé)
+      return Response.json(
+        { success: false, error: e.message, details: { code: "EMAIL_NOT_VERIFIED", email: (e as { email?: string }).email } },
+        { status: 403 }
+      );
+    }
     if (e.status === 403) return forbidden(e.message);
     console.error("[POST /api/v1/auth/login]", err);
     return serverError();

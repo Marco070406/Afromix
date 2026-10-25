@@ -35,6 +35,8 @@ export async function POST(request: Request): Promise<Response> {
       email: result.email,
       role: result.role,
       emailVerified: result.emailVerified,
+      // Aucune session à l'inscription : le client doit faire saisir le code reçu par e-mail
+      verificationRequired: result.verificationRequired,
     });
   } catch (err) {
     const e = err as Error & { status?: number };

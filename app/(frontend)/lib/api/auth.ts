@@ -49,11 +49,16 @@ export const authApi = {
       { email, password }
     ),
 
+  // L'inscription n'ouvre pas de session : l'adresse doit d'abord être confirmée par code
   register: (input: RegisterInput) =>
-    api.post<{ userId: string; email: string; role: string; emailVerified: boolean }>(
+    api.post<{ userId: string; email: string; role: string; emailVerified: false; verificationRequired: true }>(
       "/auth/register",
       input
     ),
+
+  /** Valide le code à 6 chiffres reçu par e-mail ; ouvre la session en cas de succès */
+  verifyEmail: (email: string, code: string) =>
+    api.post<{ userId: string; role: string; emailVerified: true }>("/auth/verify-email", { email, code }),
 
   logout: () => api.post<{ message: string }>("/auth/logout"),
 
@@ -63,6 +68,6 @@ export const authApi = {
   resetPassword: (token: string, password: string) =>
     api.post<{ message: string }>("/auth/reset-password", { token, password }),
 
-  resendVerification: () =>
-    api.post<{ message: string }>("/auth/verify-email"),
+  resendVerification: (email: string) =>
+    api.post<{ message: string }>("/auth/verify-email/resend", { email }),
 };

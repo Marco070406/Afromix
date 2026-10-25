@@ -19,6 +19,15 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Mot de passe requis"),
 });
 
+export const verifyEmailSchema = z.object({
+  email: z.email("Email invalide"),
+  code: z.string().regex(/^\d{6}$/, "Le code contient 6 chiffres"),
+});
+
+export const resendVerificationSchema = z.object({
+  email: z.email("Email invalide"),
+});
+
 export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });

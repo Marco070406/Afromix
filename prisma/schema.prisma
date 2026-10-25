@@ -286,9 +286,10 @@ model OAuthAccount {
 model EmailVerification {
   id        String   @id @default(cuid())
   userId    String
-  token     String   @unique
+  token     String   @unique // empreinte HMAC du code OTP (jamais le code en clair)
   expiresAt DateTime
   usedAt    DateTime?
+  attempts  Int      @default(0) // essais erronés ; le code est invalidé au-delà de la limite
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

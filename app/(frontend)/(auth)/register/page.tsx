@@ -8,7 +8,6 @@ import { z } from "zod";
 import { Mail, Lock, User, Mic2, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useAuth } from "@/app/(frontend)/providers/auth-provider";
 import { Button } from "@/app/(frontend)/components/ui/button";
 import { Input } from "@/app/(frontend)/components/ui/input";
 import { ApiError } from "@/app/(frontend)/lib/api/client";
@@ -35,7 +34,6 @@ type FormValues = z.infer<ReturnType<typeof makeSchema>>;
 export default function RegisterPage() {
   const { tr } = useI18n();
   const router = useRouter();
-  const { login } = useAuth();
   const [role, setRole] = useState<"USER" | "ARTIST">("USER");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -58,12 +56,12 @@ export default function RegisterPage() {
     try {
       const { authApi } = await import("@/app/(frontend)/lib/api/auth");
       await authApi.register(data);
-      await login(data.email, data.password);
-      toast.success(tr("Compte créé avec succès !", "Account created!"));
-      router.push("/");
+      toast.success(tr("Compte créé ! Un code de vérification vous a été envoyé par e-mail.", "Account created! A verification code has been emailed to you."));
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 409) toast.error(tr("Cet email est déjà utilisé", "This email is already in use"));
+        if (err.status === 409) toast.error(tr("Cet email est déjà utilisé. Connectez-vous pour continuer.", "This email is already in use. Log in to continue."));
+        else if (err.status === 429) toast.error(tr("Trop de tentatives, réessayez dans une minute.", "Too many attempts, try again in a minute."));
         else toast.error(tr("Impossible de créer le compte", "Could not create the account"));
       } else {
         toast.error(tr("Une erreur est survenue", "Something went wrong"));

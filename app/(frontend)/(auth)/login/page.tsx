@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/app/(frontend)/providers/auth-provider";
 import { Button } from "@/app/(frontend)/components/ui/button";
@@ -29,16 +29,6 @@ export default function LoginPage() {
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    if (searchParams.get("verified") === "true") {
-      toast.success(tr("Adresse email vérifiée avec succès ! Vous pouvez maintenant vous connecter.", "Email verified! You can now log in."));
-    } else if (searchParams.get("error") === "invalid_token") {
-      toast.error(tr("Le lien de vérification est invalide ou a expiré.", "The verification link is invalid or has expired."));
-    } else if (searchParams.get("error") === "missing_token") {
-      toast.error(tr("Jeton de vérification manquant.", "Missing verification token."));
-    }
-  }, [searchParams, tr]);
-
   const {
     register,
     handleSubmit,
@@ -53,8 +43,14 @@ export default function LoginPage() {
       router.push(from);
     } catch (err) {
       if (err instanceof ApiError) {
+        const details = err.details as { code?: string } | undefined;
         if (err.status === 401) toast.error(tr("Email ou mot de passe incorrect", "Incorrect email or password"));
+        else if (err.status === 403 && details?.code === "EMAIL_NOT_VERIFIED") {
+          toast.info(tr("Confirmez d'abord votre adresse : un code vient de vous être envoyé.", "Please confirm your email first: a code has just been sent to you."));
+          router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+        }
         else if (err.status === 403) toast.error(tr("Compte suspendu", "Account suspended"));
+        else if (err.status === 429) toast.error(tr("Trop de tentatives, réessayez dans une minute.", "Too many attempts, try again in a minute."));
         else toast.error(tr("Impossible de se connecter", "Could not log in"));
       } else {
         toast.error(tr("Une erreur est survenue", "Something went wrong"));

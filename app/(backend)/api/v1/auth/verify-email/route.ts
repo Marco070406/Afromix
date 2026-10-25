@@ -1,48 +1,47 @@
-import { getSession } from "@/lib/auth";
-import { sendVerificationEmail } from "@/lib/email";
-import { prisma } from "@/lib/prisma";
-import { ok, badRequest, unauthorized, serverError } from "@/lib/response";
-import { createEmailVerificationToken } from "@/services/auth/tokens";
-import { rateLimit } from "@/lib/redis";
+import { verifyEmailOtp, EMAIL_OTP_MAX_ATTEMPTS } from "@/services/auth/tokens";
+import { verifyEmailSchema } from "@/lib/validations/auth";
+import { setAuthCookies } from "@/lib/auth";
+import { rateLimit, clientIp } from "@/lib/redis";
+import { ok, badRequest, serverError, tooManyRequests } from "@/lib/response";
 
 /**
  * POST /api/v1/auth/verify-email
- * Renvoie un email de vérification à l'utilisateur connecté.
- * Utile si le premier email n'est pas arrivé.
+ * Body : { email, code } — code à 6 chiffres reçu par e-mail à l'inscription.
+ * Un code correct confirme l'adresse et ouvre la session (cookies d'authentification).
+ * Les essais sont limités par code (EMAIL_OTP_MAX_ATTEMPTS) et par IP.
  */
-export async function POST(): Promise<Response> {
-  const session = await getSession();
-  if (!session) return unauthorized();
-
-  // Renvoi de l'e-mail de vérification : 3 par heure et par compte
-  if (!(await rateLimit(`verify-email:${session.sub}`, 3, 60 * 60)).allowed) {
-    return Response.json({ success: false, error: "Too many requests" }, { status: 429 });
+export async function POST(request: Request): Promise<Response> {
+  if (!(await rateLimit(`otp-verify:${clientIp(request.headers)}`, 20, 15 * 60)).allowed) {
+    return tooManyRequests();
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.sub },
-    select: {
-      id: true,
-      email: true,
-      emailVerified: true,
-      profile: { select: { displayName: true } },
-    },
-  });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return badRequest("Invalid JSON body");
+  }
 
-  if (!user) return unauthorized();
-
-  if (user.emailVerified) {
-    return badRequest("Email already verified");
+  const parsed = verifyEmailSchema.safeParse(body);
+  if (!parsed.success) {
+    return badRequest("Validation error", parsed.error.flatten().fieldErrors);
   }
 
   try {
-    const token = await createEmailVerificationToken(user.id);
-    await sendVerificationEmail(
-      user.email,
-      user.profile?.displayName ?? "there",
-      token
-    );
-    return ok({ message: "Verification email sent" });
+    const result = await verifyEmailOtp(parsed.data.email, parsed.data.code);
+
+    if (!result.ok) {
+      // Même message pour une adresse inconnue et un code expiré : pas d'énumération des comptes
+      const reason = result.reason === "unknown" ? "expired" : result.reason;
+      return badRequest("Invalid verification code", {
+        reason,
+        attemptsLeft: result.reason === "invalid" ? result.attemptsLeft : undefined,
+        maxAttempts: EMAIL_OTP_MAX_ATTEMPTS,
+      });
+    }
+
+    await setAuthCookies(result.userId, result.role);
+    return ok({ userId: result.userId, role: result.role, emailVerified: true });
   } catch (err) {
     console.error("[POST /api/v1/auth/verify-email]", err);
     return serverError();

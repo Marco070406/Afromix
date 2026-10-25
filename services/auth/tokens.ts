@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { JWT_SECRET } from "@/lib/jwt";
 
 // ─── Token generation ─────────────────────────────────────────────────────────
 
@@ -10,63 +11,81 @@ function generateToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-// ─── Email verification ───────────────────────────────────────────────────────
+// ─── Email verification (code OTP) ────────────────────────────────────────────
 
-const EMAIL_VERIFY_TTL_HOURS = 24;
+export const EMAIL_OTP_TTL_MINUTES = 10;
+export const EMAIL_OTP_MAX_ATTEMPTS = 5;
 
 /**
- * Crée (ou renouvelle) un token de vérification d'email pour un utilisateur.
- * Invalide les anciens tokens non utilisés.
+ * Empreinte HMAC du code, liée à l'utilisateur et salée par le secret serveur :
+ * le code n'est jamais stocké en clair, et une fuite de la base ne permet pas
+ * de retrouver les codes en essayant le million de combinaisons hors ligne.
  */
-export async function createEmailVerificationToken(
-  userId: string
-): Promise<string> {
-  // Invalide les anciens tokens non utilisés
-  await prisma.emailVerification.updateMany({
-    where: { userId, usedAt: null },
-    data: { usedAt: new Date() },
-  });
-
-  const token = generateToken();
-  const expiresAt = new Date(
-    Date.now() + EMAIL_VERIFY_TTL_HOURS * 60 * 60 * 1000
-  );
-
-  await prisma.emailVerification.create({
-    data: { userId, token, expiresAt },
-  });
-
-  return token;
+function hashOtp(userId: string, code: string): string {
+  return crypto.createHmac("sha256", JWT_SECRET).update(`${userId}:${code}`).digest("hex");
 }
 
 /**
- * Vérifie un token d'email. Retourne le userId si valide, null sinon.
- * Marque le token comme utilisé et met à jour emailVerified sur le User.
+ * Crée un nouveau code à 6 chiffres pour l'utilisateur et invalide les précédents.
+ * Retourne le code en clair, à envoyer par e-mail uniquement.
  */
-export async function consumeEmailVerificationToken(
-  token: string
-): Promise<{ userId: string } | null> {
-  const record = await prisma.emailVerification.findUnique({
-    where: { token },
-  });
+export async function createEmailOtp(userId: string): Promise<string> {
+  const code = crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const expiresAt = new Date(Date.now() + EMAIL_OTP_TTL_MINUTES * 60 * 1000);
 
-  if (!record) return null;
-  if (record.usedAt) return null;
-  if (record.expiresAt < new Date()) return null;
-
-  // Marque comme utilisé et vérifie l'email en une transaction
   await prisma.$transaction([
-    prisma.emailVerification.update({
-      where: { id: record.id },
-      data: { usedAt: new Date() },
-    }),
-    prisma.user.update({
-      where: { id: record.userId },
-      data: { emailVerified: new Date() },
-    }),
+    prisma.emailVerification.deleteMany({ where: { userId } }),
+    prisma.emailVerification.create({ data: { userId, token: hashOtp(userId, code), expiresAt } }),
   ]);
 
-  return { userId: record.userId };
+  return code;
+}
+
+export type EmailOtpResult =
+  | { ok: true; userId: string; role: string }
+  | { ok: false; reason: "invalid"; attemptsLeft: number }
+  | { ok: false; reason: "expired" | "too_many_attempts" | "already_verified" | "unknown" };
+
+/**
+ * Vérifie le code saisi pour une adresse e-mail. En cas de succès, marque l'adresse
+ * comme vérifiée. Chaque erreur consomme un essai ; au-delà de la limite le code
+ * est invalidé et il faut en demander un nouveau.
+ */
+export async function verifyEmailOtp(email: string, code: string): Promise<EmailOtpResult> {
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true, role: true, emailVerified: true, deletedAt: true },
+  });
+  if (!user || user.deletedAt) return { ok: false, reason: "unknown" };
+  if (user.emailVerified) return { ok: false, reason: "already_verified" };
+
+  const record = await prisma.emailVerification.findFirst({
+    where: { userId: user.id, usedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!record || record.expiresAt < new Date()) return { ok: false, reason: "expired" };
+  if (record.attempts >= EMAIL_OTP_MAX_ATTEMPTS) return { ok: false, reason: "too_many_attempts" };
+
+  const expected = Buffer.from(record.token, "hex");
+  const given = Buffer.from(hashOtp(user.id, code), "hex");
+  const matches = expected.length === given.length && crypto.timingSafeEqual(expected, given);
+
+  if (!matches) {
+    const attempts = record.attempts + 1;
+    await prisma.emailVerification.update({
+      where: { id: record.id },
+      data: { attempts, ...(attempts >= EMAIL_OTP_MAX_ATTEMPTS && { usedAt: new Date() }) },
+    });
+    return attempts >= EMAIL_OTP_MAX_ATTEMPTS
+      ? { ok: false, reason: "too_many_attempts" }
+      : { ok: false, reason: "invalid", attemptsLeft: EMAIL_OTP_MAX_ATTEMPTS - attempts };
+  }
+
+  await prisma.$transaction([
+    prisma.emailVerification.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+    prisma.user.update({ where: { id: user.id }, data: { emailVerified: new Date() } }),
+  ]);
+  return { ok: true, userId: user.id, role: user.role };
 }
 
 // ─── Password reset ───────────────────────────────────────────────────────────
