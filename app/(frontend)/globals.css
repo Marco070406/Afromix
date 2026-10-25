@@ -40,12 +40,23 @@
 
   /* BottomNav height (h-15 = 3.75rem = 60px) + iPhone safe area inset */
   --bottom-nav-h: calc(3.75rem + env(safe-area-inset-bottom, 0px));
+  /* Hauteur du lecteur fixe, 0 tant que rien ne joue (voir html[data-player]) */
+  --player-h: 0px;
 }
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Lecteur affiché : mini-lecteur mobile (barre de progression 2px + 4rem) */
+html[data-player="on"] { --player-h: calc(4rem + 2px); }
+
+@media (min-width: 1024px) {
+  /* Desktop : pas de barre de navigation en bas, lecteur pleine largeur de 5.5rem */
+  :root { --bottom-nav-h: 0px; }
+  html[data-player="on"] { --player-h: 5.5rem; }
 }
 
 html, body {
@@ -267,4 +278,31 @@ a {
 img {
   opacity: 1;
   transition: opacity 0.3s ease;
+}
+
+/* ── Écran de chargement (components/brand/splash-screen.tsx) ── */
+@keyframes splashBreathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+@keyframes splashGlow {
+  0%, 100% { opacity: 0.25; transform: scale(0.9); }
+  50%      { opacity: 0.45; transform: scale(1.1); }
+}
+@keyframes splashBar {
+  0%, 100% { height: 25%; }
+  50%      { height: 100%; }
+}
+/* Si le JavaScript ne s'exécute pas, l'écran s'efface quand même tout seul */
+@keyframes splashFailsafe {
+  to { opacity: 0; visibility: hidden; }
+}
+.splash-screen { animation: splashFailsafe 0.4s ease-out 6s forwards; }
+.splash-symbol { animation: splashBreathe 1.6s ease-in-out infinite; }
+.splash-glow   { animation: splashGlow 1.6s ease-in-out infinite; }
+.splash-bar    { height: 25%; animation: splashBar 0.9s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-symbol, .splash-glow, .splash-bar { animation: none; }
+  .splash-bar { height: 60%; }
 }

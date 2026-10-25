@@ -46,6 +46,11 @@ export function PlayerBar() {
   const { isLiked, toggleLike, isPending: likePending } = useLikedMixIds();
   const { openAddToPlaylist } = useAddToPlaylist();
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Expose la présence du lecteur : la zone de contenu réserve sa hauteur (--player-h)
+  useEffect(() => {
+    document.documentElement.dataset.player = track ? "on" : "off";
+  }, [track]);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverX, setHoverX] = useState(0);

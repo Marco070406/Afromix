@@ -7,8 +7,12 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
+  Calendar,
+  Compass,
   Library,
   LogOut,
+  TrendingUp,
+  Users,
   Menu,
   Mic2,
   Settings,
@@ -259,7 +263,38 @@ export function Header() {
             onClick={() => setMobileMenuOpen(false)}
           />
           {/* Menu panel */}
-          <div className="lg:hidden fixed top-16 left-0 right-0 z-50 bg-surface border-b border-line px-4 py-4 flex flex-col gap-3 animate-fade-in-up">
+          <div className="lg:hidden fixed top-16 left-0 right-0 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain bg-surface border-b border-line px-4 py-4 flex flex-col gap-3 animate-fade-in-up">
+            {/* Découverte : ces pages n'ont pas d'onglet dans la barre du bas sur mobile */}
+            <nav aria-label={t("nav.discover")} className="grid grid-cols-2 gap-2">
+              {[
+                { href: "/explore", icon: Compass, label: t("nav.explore") },
+                { href: "/trending", icon: TrendingUp, label: t("nav.trending") },
+                { href: "/artists", icon: Users, label: t("nav.djs") },
+                { href: "/events", icon: Calendar, label: t("nav.events") },
+              ].map(({ href, icon: Icon, label }) => {
+                const active = pathname === href || pathname.startsWith(href + "/");
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3 py-3 rounded-xl border text-sm font-medium transition-colors",
+                      active
+                        ? "bg-white/[0.07] border-line-strong text-white"
+                        : "bg-surface-2 border-line text-muted hover:text-white hover:border-line-strong"
+                    )}
+                  >
+                    <Icon className={cn("h-4 w-4 flex-shrink-0", active ? "text-brand" : "text-subtle")} />
+                    {label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="h-px bg-line" />
+
             {user ? (
               <>
                 {/* Profile row with real avatar */}

@@ -6,6 +6,7 @@ import { Sidebar } from "./components/layout/sidebar";
 import { Header } from "./components/layout/header";
 import { PlayerBar } from "./components/player/player-bar";
 import { BottomNav } from "./components/layout/bottom-nav";
+import { SplashScreen } from "./components/brand/splash-screen";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
@@ -34,6 +35,7 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
   return (
     <html lang="fr" className={`${geist.variable} ${bricolage.variable} h-full`} suppressHydrationWarning>
       <body className="h-full bg-bg text-white antialiased overflow-x-hidden" suppressHydrationWarning>
+        <SplashScreen />
         <Providers>
           <div className="flex h-full min-h-0">
             {/* Sidebar desktop */}
@@ -42,7 +44,7 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
             {/* Main content + player stacked vertically */}
             <div className="flex flex-col flex-1 min-w-0 min-h-0 h-full">
               <Header />
-              <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden min-w-0">
+              <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden min-w-0 pb-[calc(var(--bottom-nav-h)+var(--player-h)+1rem)]">
                 {children}
               </main>
 
