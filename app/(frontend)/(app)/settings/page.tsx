@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
 import { Globe, Bell, Headphones, Check } from "lucide-react";
 import { toast } from "sonner";
+import { InstallAppSection } from "@/app/(frontend)/components/pwa/install-app-button";
 
 export default function SettingsPage() {
   const { language, setLanguage, t } = useI18n();
@@ -28,6 +29,9 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6">
+        {/* Section 0 : application installable (PWA) */}
+        <InstallAppSection />
+
         {/* Section 1: Langue & Région */}
         <div className="rounded-3xl bg-[#111318] border border-white/[0.08] p-6 space-y-4">
           <div className="flex items-center gap-3 pb-3 border-b border-white/[0.06]">

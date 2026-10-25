@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useStoredValue } from "@/app/(frontend)/hooks/use-stored-value";
 import { AfromixLogo, AfromixSymbol } from "@/app/(frontend)/components/brand/afromix-logo";
+import { InstallAppButton } from "@/app/(frontend)/components/pwa/install-app-button";
 import { cn } from "@/app/(frontend)/lib/utils";
 import { useAuth } from "@/app/(frontend)/providers/auth-provider";
 import { useI18n, type TranslationKey } from "@/app/(frontend)/providers/i18n-provider";
@@ -163,6 +164,7 @@ export function Sidebar() {
 
       {/* ── Pied de page (Footer) ── */}
       <div className="mt-auto pt-5 border-t border-line w-full space-y-3">
+        <InstallAppButton variant={isCollapsed ? "sidebar-collapsed" : "sidebar"} />
         {!isCollapsed ? (
           <div className="flex items-center justify-between gap-2 px-1">
             <div className="flex items-center p-0.5 rounded-lg bg-surface border border-line">

@@ -189,6 +189,8 @@ def main():
         "afromix-symbol-small.svg": symbol_svg(SYMBOL_SMALL, "gradient"),
         "afromix-app-icon.svg": app_icon_svg(SYMBOL),
         "afromix-app-icon-small.svg": app_icon_svg(SYMBOL_SMALL, scale=0.78),
+        # Android « maskable » : fond plein jusqu'aux bords, symbole dans la zone sûre (cercle de 80 %)
+        "afromix-app-icon-maskable.svg": app_icon_svg(SYMBOL, radius=0, scale=0.6),
         "afromix-logo-dark-bg.svg": lockup_svg(PAPER, "gradient", "gradient"),
         "afromix-logo-light-bg.svg": lockup_svg(INK, "gradient", "gradient"),
         "afromix-logo-black.svg": lockup_svg("#000", "#000", "#000"),
@@ -202,6 +204,8 @@ def main():
     for size in (512, 192):
         render_png(OUT / "afromix-app-icon.svg", size, PNG / f"afromix-app-icon-{size}.png")
     render_png(OUT / "afromix-app-icon.svg", 180, PNG / "apple-touch-icon-180.png")
+    for size in (512, 192):
+        render_png(OUT / "afromix-app-icon-maskable.svg", size, PNG / f"afromix-app-icon-maskable-{size}.png")
     # Logo blanc en PNG pour les e-mails (les clients mail n'affichent pas le SVG), 2× pour les écrans HD
     lockup_w = float(files["afromix-logo-white.svg"].split('viewBox="0 0 ')[1].split(" ")[0])
     email_h = 96

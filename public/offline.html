@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#09090E">
+  <title>Hors ligne · AfroMix</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: #09090E; color: #F5F5F7; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      padding: 24px;
+    }
+    main { max-width: 360px; text-align: center; }
+    img { width: 88px; height: 88px; border-radius: 20px; }
+    h1 { font-size: 22px; margin: 24px 0 8px; letter-spacing: -0.02em; }
+    p { color: #9097A3; font-size: 15px; line-height: 1.5; margin: 0 0 6px; }
+    .en { font-size: 13px; color: #5F6573; }
+    button {
+      margin-top: 24px; border: 0; border-radius: 999px; padding: 12px 28px; cursor: pointer;
+      font: 600 15px system-ui, sans-serif; color: #fff; background: linear-gradient(120deg, #9333EA, #DB2777);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/icons/icon-192.png" alt="AfroMix">
+    <h1>Vous êtes hors ligne</h1>
+    <p>Vérifiez votre connexion internet, puis réessayez.</p>
+    <p class="en">You're offline. Check your connection and try again.</p>
+    <button type="button" onclick="location.reload()">Réessayer / Retry</button>
+  </main>
+  <script>
+    // Retour automatique dès que la connexion revient
+    window.addEventListener("online", () => location.reload());
+  </script>
+</body>
+</html>

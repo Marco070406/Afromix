@@ -26,6 +26,7 @@ import { useAuth } from "@/app/(frontend)/providers/auth-provider";
 import { useQuery } from "@tanstack/react-query";
 import { notificationsApi } from "@/app/(frontend)/lib/api/notifications";
 import { AfromixLogo } from "@/app/(frontend)/components/brand/afromix-logo";
+import { InstallAppButton } from "@/app/(frontend)/components/pwa/install-app-button";
 import { SearchBar } from "@/app/(frontend)/components/layout/search-bar";
 import { NotificationBellPopover } from "@/app/(frontend)/components/notifications/notification-bell-popover";
 import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
@@ -292,6 +293,8 @@ export function Header() {
                 );
               })}
             </nav>
+
+            <InstallAppButton variant="menu" onDone={() => setMobileMenuOpen(false)} />
 
             <div className="h-px bg-line" />
 

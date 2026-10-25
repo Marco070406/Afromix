@@ -19,6 +19,19 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 60 * 60 * 24, // 24h
   },
   devIndicators: false,
+  // Le service worker doit toujours être relu à jour, sinon une nouvelle version
+  // mettrait jusqu'à 24 h à atteindre les applications installées
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

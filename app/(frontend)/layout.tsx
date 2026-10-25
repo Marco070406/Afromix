@@ -7,6 +7,7 @@ import { Header } from "./components/layout/header";
 import { PlayerBar } from "./components/player/player-bar";
 import { BottomNav } from "./components/layout/bottom-nav";
 import { SplashScreen } from "./components/brand/splash-screen";
+import { PwaInit } from "./components/pwa/install-app-button";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
@@ -23,12 +24,22 @@ export const metadata: Metadata = {
     description: "La plateforme des DJs et artistes africains.",
   },
   twitter: { card: "summary_large_image" },
+  // Application installable (PWA) : manifeste statique dans public/
+  applicationName: "AfroMix",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "AfroMix",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#09090E",
 };
 
 export default function FrontendLayout({ children }: { children: React.ReactNode }) {
@@ -36,6 +47,7 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
     <html lang="fr" className={`${geist.variable} ${bricolage.variable} h-full`} suppressHydrationWarning>
       <body className="h-full bg-bg text-white antialiased overflow-x-hidden" suppressHydrationWarning>
         <SplashScreen />
+        <PwaInit />
         <Providers>
           <div className="flex h-full min-h-0">
             {/* Sidebar desktop */}
