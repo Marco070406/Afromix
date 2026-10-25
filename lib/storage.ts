@@ -151,7 +151,10 @@ export function generateKey(
  * Retourne l'URL CDN publique pour une clé stockée.
  */
 export function cdnUrl(key: string): string {
-  if (isS3Configured() && CDN_BASE) {
+  if (isS3Configured()) {
+    // Sans URL publique, le fichier serait bien sur R2/S3 mais enregistré avec une adresse
+    // /uploads/… inexistante : mieux vaut échouer clairement.
+    if (!CDN_BASE) throw new Error("STORAGE_CDN_URL manquant : URL publique du bucket requise.");
     return `${CDN_BASE.replace(/\/$/, "")}/${key}`;
   }
   return `/uploads/${key}`;
