@@ -9,7 +9,7 @@
  *     → body { key } → persiste cdnUrl comme avatarUrl sur le profil
  */
 
-import { createPresignedUploadUrl, generateKey, ALLOWED_IMAGE_TYPES } from "@/lib/storage";
+import { createPresignedUploadUrl, generateKey, ALLOWED_IMAGE_TYPES, storageUnavailable } from "@/lib/storage";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { created, badRequest, unauthorized, forbidden, notFound, serverError } from "@/lib/response";
@@ -61,6 +61,9 @@ export async function POST(
   const { slug } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const unavailable = storageUnavailable();
+  if (unavailable) return unavailable;
 
   const resolved = await resolveOwnProfile(slug, session.sub, session.role);
   if (resolved.error) return resolved.error;

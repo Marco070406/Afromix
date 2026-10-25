@@ -25,6 +25,7 @@ export interface BookingInquiry {
   message: string;
   status: "PENDING" | "READ" | "ACCEPTED" | "DECLINED";
   createdAt: string;
+  sender: { profile: { avatarUrl: string | null } | null } | null;
 }
 
 export type ArtistProfileUpdate = Partial<{
@@ -113,4 +114,11 @@ export const artistsApi = {
       contentType,
       folder: "banners",
     }),
+
+  // Enregistre sur le profil une image déjà envoyée (clé renvoyée par presign)
+  confirmAvatar: (slug: string, key: string) =>
+    api.post<{ avatarUrl: string }>(`/artists/${slug}/avatar/confirm`, { key }),
+
+  confirmBanner: (slug: string, key: string) =>
+    api.post<{ bannerUrl: string }>(`/artists/${slug}/banner/confirm`, { key }),
 };

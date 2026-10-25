@@ -83,6 +83,10 @@ export function serverError(error = "Internal server error"): Response {
   return errorResponse(500, error);
 }
 
+export function serviceUnavailable(error: string): Response {
+  return errorResponse(503, error);
+}
+
 function errorResponse(status: number, error: string, details?: unknown): Response {
   const body: ApiError = {
     success: false,

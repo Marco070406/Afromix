@@ -1,4 +1,4 @@
-import { createPresignedUploadUrl, generateKey } from "@/lib/storage";
+import { createPresignedUploadUrl, generateKey, storageUnavailable } from "@/lib/storage";
 import { getSession } from "@/lib/auth";
 import { presignedUploadSchema } from "@/lib/validations/upload";
 import { created, badRequest, unauthorized, serverError } from "@/lib/response";
@@ -8,6 +8,9 @@ import { created, badRequest, unauthorized, serverError } from "@/lib/response";
 export async function POST(request: Request): Promise<Response> {
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const unavailable = storageUnavailable();
+  if (unavailable) return unavailable;
 
   let body: unknown;
   try {

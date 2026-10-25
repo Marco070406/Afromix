@@ -3,7 +3,7 @@
  * POST /api/v1/mixes/[id]/cover/confirm → persiste coverUrl
  */
 
-import { createPresignedUploadUrl, generateKey, isImageType, isStorageConfigured } from "@/lib/storage";
+import { createPresignedUploadUrl, generateKey, isImageType, isStorageConfigured, storageUnavailable } from "@/lib/storage";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { created, badRequest, unauthorized, forbidden, notFound, serverError } from "@/lib/response";
@@ -22,6 +22,9 @@ export async function POST(
   const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const unavailable = storageUnavailable();
+  if (unavailable) return unavailable;
 
   if (!isStorageConfigured()) {
     return badRequest("Storage non configuré.");

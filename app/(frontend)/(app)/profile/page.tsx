@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -22,6 +22,7 @@ import {
   Globe,
   Loader2,
   Camera,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/app/(frontend)/providers/auth-provider";
@@ -32,6 +33,7 @@ import { Button } from "@/app/(frontend)/components/ui/button";
 import { Input } from "@/app/(frontend)/components/ui/input";
 import { authApi } from "@/app/(frontend)/lib/api/auth";
 import { DjProfileEditor } from "@/app/(frontend)/components/profile/dj-profile-editor";
+import { IMAGE_ACCEPT, uploadErrorMessage, uploadImage } from "@/app/(frontend)/lib/upload-image";
 
 const AFRICAN_COUNTRIES = [
   { code: "CI", name: "Côte d'Ivoire" },
@@ -72,7 +74,8 @@ function ProfileContent() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [displayName, setDisplayName] = useState(user?.profile?.displayName ?? "");
-  const [avatarUrl, setAvatarUrl] = useState(user?.profile?.avatarUrl ?? "");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [country, setCountry] = useState(user?.profile?.country ?? "");
   const [city, setCity] = useState(user?.profile?.city ?? "");
   const [bio, setBio] = useState(user?.profile?.bio ?? "");
@@ -83,7 +86,6 @@ function ProfileContent() {
     setSyncedProfile(user?.profile);
     if (user?.profile) {
       setDisplayName(user.profile.displayName ?? "");
-      setAvatarUrl(user.profile.avatarUrl ?? "");
       setCountry(user.profile.country ?? "");
       setCity(user.profile.city ?? "");
       setBio(user.profile.bio ?? "");
@@ -118,7 +120,6 @@ function ProfileContent() {
     try {
       await authApi.updateProfile({
         displayName: displayName.trim(),
-        avatarUrl: avatarUrl.trim() || null,
         country: country || null,
         city: city.trim() || null,
         bio: bio.trim() || null,
@@ -137,11 +138,42 @@ function ProfileContent() {
     }
   };
 
+  // La photo est enregistrée dès l'envoi, sans passer par « Modifier mes infos »
+  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permet de reprendre le même fichier
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const { url } = await uploadImage(file, "avatars");
+      await authApi.updateProfile({ avatarUrl: url });
+      await refresh();
+      setAvatarErr(false);
+      toast.success(tr("Photo de profil mise à jour !", "Profile photo updated!"));
+    } catch (err) {
+      toast.error(uploadErrorMessage(err, tr));
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setAvatarUploading(true);
+    try {
+      await authApi.updateProfile({ avatarUrl: null });
+      await refresh();
+      toast.success(tr("Photo de profil retirée", "Profile photo removed"));
+    } catch {
+      toast.error(tr("Impossible de retirer la photo", "Could not remove the photo"));
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const handleCancelEdit = () => {
     setIsEditing(false);
     if (user?.profile) {
       setDisplayName(user.profile.displayName ?? "");
-      setAvatarUrl(user.profile.avatarUrl ?? "");
       setCountry(user.profile.country ?? "");
       setCity(user.profile.city ?? "");
       setBio(user.profile.bio ?? "");
@@ -205,6 +237,7 @@ function ProfileContent() {
           <div className="rounded-3xl bg-[#111318] border border-white/[0.08] p-6 sm:p-8 space-y-6">
             <div className="flex flex-col sm:flex-row items-center gap-5 justify-between">
               <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+                <div className="relative flex-shrink-0">
                 <div className="relative h-20 w-20 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-600/20 bg-zinc-800 border-2 border-white/10">
                   {user?.profile?.avatarUrl && !avatarErr ? (
                     <Image
@@ -220,6 +253,29 @@ function ProfileContent() {
                       {user?.profile?.displayName?.[0]?.toUpperCase() ?? "?"}
                     </span>
                   )}
+                  {avatarUploading && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/60">
+                      <Loader2 className="h-6 w-6 animate-spin text-white" />
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  aria-label={tr("Changer la photo de profil", "Change profile photo")}
+                  title={tr("Changer la photo de profil", "Change profile photo")}
+                  className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-brand-gradient border-2 border-[#111318] flex items-center justify-center text-white shadow-lg disabled:opacity-60"
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept={IMAGE_ACCEPT}
+                  className="hidden"
+                  onChange={handleAvatarFile}
+                />
                 </div>
 
                 <div className="min-w-0 space-y-1">
@@ -316,13 +372,36 @@ function ProfileContent() {
                     required
                   />
 
-                  <Input
-                    label={language === "fr" ? "Photo de profil (URL)" : "Avatar Image URL"}
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    placeholder="https://..."
-                    leftIcon={<Camera className="h-4 w-4" />}
-                  />
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <span className="text-sm font-semibold text-zinc-300">{tr("Photo de profil", "Profile photo")}</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => avatarInputRef.current?.click()}
+                        disabled={avatarUploading}
+                        className="flex items-center gap-2 h-11"
+                      >
+                        <Camera className="h-4 w-4 text-purple-400" />
+                        <span>{user?.profile?.avatarUrl ? tr("Changer", "Change") : tr("Ajouter une photo", "Add a photo")}</span>
+                      </Button>
+                      {user?.profile?.avatarUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRemoveAvatar}
+                          disabled={avatarUploading}
+                          className="flex items-center gap-2 h-11 text-zinc-400 hover:text-red-400"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span>{tr("Retirer", "Remove")}</span>
+                        </Button>
+                      )}
+                    </div>
+                    <span className="text-xs text-zinc-500">{tr("JPEG, PNG ou WebP, 10 Mo maximum", "JPEG, PNG or WebP, 10 MB max")}</span>
+                  </div>
 
                   <div className="flex flex-col gap-1.5 w-full">
                     <label className="text-sm font-semibold text-zinc-300">

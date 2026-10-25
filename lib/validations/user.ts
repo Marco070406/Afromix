@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { httpUrl } from "@/lib/validations/common";
+import { httpUrl, imageUrl } from "@/lib/validations/common";
 
 // ─── Profil utilisateur basique ───────────────────────────────────────────────
 
@@ -37,8 +37,8 @@ export const updateArtistProfileSchema = z.object({
     .max(6, "Maximum 6 genres")
     .optional(),
   // URLs media (posées après upload direct R2)
-  avatarUrl: httpUrl().optional().or(z.literal("")),
-  bannerUrl: httpUrl().optional().or(z.literal("")),
+  avatarUrl: imageUrl().optional().or(z.literal("")),
+  bannerUrl: imageUrl().optional().or(z.literal("")),
 });
 
 // ─── Demande de Contact / Booking ─────────────────────────────────────────────

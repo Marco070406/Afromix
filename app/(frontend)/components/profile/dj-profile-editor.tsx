@@ -28,6 +28,7 @@ import { artistsApi, type ArtistProfileUpdate } from "@/app/(frontend)/lib/api/a
 import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
 import { toast } from "sonner";
 import { GENRE_LABELS, countryName } from "@/app/(frontend)/lib/utils";
+import { uploadErrorMessage, uploadImage } from "@/app/(frontend)/lib/upload-image";
 
 const AFRICAN_COUNTRIES = [
   { code: "CI", name: "Côte d'Ivoire" },
@@ -130,73 +131,31 @@ export function DjProfileEditor() {
     }
   }
 
-  // Upload Avatar helper
-  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Photo de profil et bannière : envoyées puis enregistrées sur le profil immédiatement
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>, kind: "avatar" | "banner") => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    e.target.value = ""; // permet de reprendre le même fichier
+    if (!file || !artist) return;
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast.error(language === "fr" ? "Format JPEG, PNG ou WebP requis" : "JPEG, PNG, or WebP required");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error(language === "fr" ? "Image trop lourde (max 10 Mo)" : "Image too large (max 10 MB)");
-      return;
-    }
-
+    const setUploading = kind === "avatar" ? setAvatarUploading : setBannerUploading;
+    setUploading(true);
     try {
-      setAvatarUploading(true);
-      const presign = await artistsApi.presignAvatar(file.name, file.type);
-      const { uploadUrl, cdnUrl } = presign.data;
-
-      await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      setAvatarUrl(cdnUrl);
-      toast.success(language === "fr" ? "Photo de profil téléchargée !" : "Avatar uploaded!");
+      const { key } = await uploadImage(file, kind === "avatar" ? "avatars" : "banners");
+      if (kind === "avatar") {
+        const res = await artistsApi.confirmAvatar(artist.slug, key);
+        setAvatarUrl(res.data.avatarUrl);
+        toast.success(tr("Photo de profil mise à jour !", "Profile photo updated!"));
+      } else {
+        const res = await artistsApi.confirmBanner(artist.slug, key);
+        setBannerUrl(res.data.bannerUrl);
+        toast.success(tr("Bannière mise à jour !", "Banner updated!"));
+      }
+      queryClient.invalidateQueries({ queryKey: ["my-artist-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["artist", artist.slug] });
     } catch (err) {
-      console.error("Avatar upload error:", err);
-      toast.error(language === "fr" ? "Erreur upload photo de profil" : "Failed to upload avatar");
+      toast.error(uploadErrorMessage(err, tr));
     } finally {
-      setAvatarUploading(false);
-    }
-  };
-
-  // Upload Banner helper
-  const handleBannerFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast.error(language === "fr" ? "Format JPEG, PNG ou WebP requis" : "JPEG, PNG, or WebP required");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error(language === "fr" ? "Image trop lourde (max 10 Mo)" : "Image too large (max 10 MB)");
-      return;
-    }
-
-    try {
-      setBannerUploading(true);
-      const presign = await artistsApi.presignBanner(file.name, file.type);
-      const { uploadUrl, cdnUrl } = presign.data;
-
-      await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      setBannerUrl(cdnUrl);
-      toast.success(language === "fr" ? "Bannière téléchargée !" : "Banner uploaded!");
-    } catch (err) {
-      console.error("Banner upload error:", err);
-      toast.error(language === "fr" ? "Erreur upload bannière" : "Failed to upload banner");
-    } finally {
-      setBannerUploading(false);
+      setUploading(false);
     }
   };
 
@@ -258,8 +217,6 @@ export function DjProfileEditor() {
       bookingPhone: bookingPhone.trim() || undefined,
       bookingNotes: bookingNotes.trim() || undefined,
       availableForBooking,
-      avatarUrl: avatarUrl || undefined,
-      bannerUrl: bannerUrl || undefined,
     });
   };
 
@@ -338,7 +295,7 @@ export function DjProfileEditor() {
             type="file"
             accept="image/jpeg,image/png,image/webp"
             className="hidden"
-            onChange={handleBannerFile}
+            onChange={(e) => handleImageFile(e, "banner")}
           />
         </div>
 
@@ -382,7 +339,7 @@ export function DjProfileEditor() {
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 className="hidden"
-                onChange={handleAvatarFile}
+                onChange={(e) => handleImageFile(e, "avatar")}
               />
             </div>
 
@@ -883,7 +840,15 @@ export function DjProfileEditor() {
                     className="p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-purple-500/30 transition-all space-y-3"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
-                      <div>
+                      <div className="flex items-center gap-3 min-w-0">
+                      <span className="relative h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-brand-gradient flex items-center justify-center text-sm font-bold text-white">
+                        {inq.sender?.profile?.avatarUrl ? (
+                          <Image src={inq.sender.profile.avatarUrl} alt="" fill sizes="40px" className="object-cover" />
+                        ) : (
+                          inq.senderName[0]?.toUpperCase()
+                        )}
+                      </span>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-white">{inq.senderName}</span>
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
@@ -908,6 +873,7 @@ export function DjProfileEditor() {
                             </a>
                           )}
                         </div>
+                      </div>
                       </div>
 
                       <span className="text-[11px] text-zinc-500 flex items-center gap-1">

@@ -2,12 +2,12 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, unauthorized, badRequest, serverError } from "@/lib/response";
 import { z } from "zod";
-import { httpUrl } from "@/lib/validations/common";
+import { httpUrl, imageUrl } from "@/lib/validations/common";
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2, "Le nom doit comporter au moins 2 caractères").max(60).optional(),
   bio: z.string().max(500).optional().nullable(),
-  avatarUrl: httpUrl().optional().nullable().or(z.literal("")),
+  avatarUrl: imageUrl().optional().nullable().or(z.literal("")),
   country: z.string().max(2).optional().nullable(),
   city: z.string().max(100).optional().nullable(),
   website: httpUrl().optional().nullable().or(z.literal("")),

@@ -3,7 +3,7 @@
  * Génère une URL presignée pour l'upload du banner.
  */
 
-import { createPresignedUploadUrl, generateKey, ALLOWED_IMAGE_TYPES } from "@/lib/storage";
+import { createPresignedUploadUrl, generateKey, ALLOWED_IMAGE_TYPES, storageUnavailable } from "@/lib/storage";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { created, badRequest, unauthorized, forbidden, notFound, serverError } from "@/lib/response";
@@ -21,6 +21,9 @@ export async function POST(
   const { slug } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const unavailable = storageUnavailable();
+  if (unavailable) return unavailable;
 
   const own = await prisma.artistProfile.findUnique({
     where: { userId: session.sub },

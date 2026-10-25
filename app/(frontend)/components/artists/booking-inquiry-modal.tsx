@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { createPortal } from "react-dom";import {
+import { createPortal } from "react-dom";
+import Image from "next/image";
+import {
   X,
   Calendar,
   MapPin,
@@ -24,6 +26,7 @@ interface BookingInquiryModalProps {
   onClose: () => void;
   artistSlug: string;
   artistStageName: string;
+  artistAvatarUrl?: string | null;
 }
 
 const EVENT_TYPES = [
@@ -40,6 +43,7 @@ export function BookingInquiryModal({
   onClose,
   artistSlug,
   artistStageName,
+  artistAvatarUrl,
 }: BookingInquiryModalProps) {
   const { user } = useAuth();
   const { language, tr } = useI18n();
@@ -139,9 +143,18 @@ export function BookingInquiryModal({
             <span>AfroMix Direct Booking</span>
           </div>
 
-          <h2 className="text-2xl font-black text-white tracking-tight">
-            {language === "fr" ? `Contacter / Réserver ${artistStageName}` : `Contact / Book ${artistStageName}`}
-          </h2>
+          <div className="flex items-center gap-4 pr-10">
+            <span className="relative h-14 w-14 rounded-full overflow-hidden flex-shrink-0 border-2 border-white/10 bg-brand-gradient flex items-center justify-center text-xl font-black text-white">
+              {artistAvatarUrl ? (
+                <Image src={artistAvatarUrl} alt={artistStageName} fill sizes="56px" className="object-cover" />
+              ) : (
+                artistStageName[0]?.toUpperCase()
+              )}
+            </span>
+            <h2 className="text-2xl font-black text-white tracking-tight">
+              {language === "fr" ? `Contacter / Réserver ${artistStageName}` : `Contact / Book ${artistStageName}`}
+            </h2>
+          </div>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
             {language === "fr"
               ? tr("Envoyez une proposition directe. Le DJ recevra un email et une notification instantanée.", "Send a direct offer. The DJ will get an email and an instant notification.")

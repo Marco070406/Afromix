@@ -35,6 +35,12 @@ import { Input } from "@/app/(frontend)/components/ui/input";
 import { Select } from "@/app/(frontend)/components/ui/select";
 import { GENRE_LABELS, genreLabel, MIX_TYPE_LABELS, formatDuration, cn } from "@/app/(frontend)/lib/utils";
 import { AfromixSymbol } from "@/app/(frontend)/components/brand/afromix-logo";
+import { ApiError } from "@/app/(frontend)/lib/api/client";
+import { checkImage, putWithProgress, uploadErrorMessage } from "@/app/(frontend)/lib/upload-image";
+
+// Formats et taille acceptés par le serveur (lib/storage.ts)
+const AUDIO_TYPES = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/aiff", "audio/x-aiff", "audio/flac", "audio/ogg"];
+const MAX_AUDIO_BYTES = 500 * 1024 * 1024;
 
 // Presets de styles pour le générateur de pochette Canvas
 const COVER_PRESETS = [
@@ -171,7 +177,18 @@ export default function UploadPage() {
   // Step 1 — Audio Selection & Metadata Extraction
   const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ""; // permet de reprendre le même fichier
     if (!file) return;
+
+    // Mêmes règles que le serveur (lib/storage.ts) : refus immédiat plutôt qu'après l'envoi
+    if (!AUDIO_TYPES.includes(file.type)) {
+      toast.error(tr("Format audio non pris en charge : MP3, WAV, AIFF, FLAC ou OGG", "Unsupported audio format: MP3, WAV, AIFF, FLAC or OGG"));
+      return;
+    }
+    if (file.size > MAX_AUDIO_BYTES) {
+      toast.error(tr("Fichier trop lourd (500 Mo maximum)", "File too large (500 MB max)"));
+      return;
+    }
 
     setAudioFile(file);
 
@@ -195,23 +212,10 @@ export default function UploadPage() {
     setAudioProgress(0);
 
     try {
-      const presignRes = await mixesApi.presignAudio(mixId, audioFile.type || "audio/mpeg");
+      const presignRes = await mixesApi.presignAudio(mixId, audioFile.type);
       const { uploadUrl, key } = presignRes.data;
 
-      // Upload direct via XMLHttpRequest avec suivi de progression
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            setAudioProgress(Math.round((e.loaded / e.total) * 100));
-          }
-        };
-        xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(`Status ${xhr.status}`)));
-        xhr.onerror = () => reject(new Error(tr("Erreur de transfert réseau", "Network transfer error")));
-        xhr.open("PUT", uploadUrl);
-        xhr.setRequestHeader("Content-Type", audioFile.type || "audio/mpeg");
-        xhr.send(audioFile);
-      });
+      await putWithProgress(uploadUrl, audioFile, setAudioProgress);
 
       // Confirmation de l'audio avec la durée exacte calculée
       await mixesApi.confirmAudio(mixId, key, detectedDuration ?? undefined);
@@ -219,7 +223,11 @@ export default function UploadPage() {
       toast.success(language === "fr" ? "Audio transféré avec succès !" : "Audio uploaded successfully!");
     } catch (err) {
       console.error(err);
-      toast.error(language === "fr" ? "Échec du transfert audio" : "Audio upload failed");
+      toast.error(
+        err instanceof ApiError && err.status === 503
+          ? err.message
+          : tr("Échec du transfert audio, réessayez.", "Audio upload failed, please try again.")
+      );
     } finally {
       setAudioUploading(false);
     }
@@ -357,18 +365,15 @@ export default function UploadPage() {
       const presign = await mixesApi.presignCover(mixId, fileToUpload.type);
       const { uploadUrl, key } = presign.data;
 
-      await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": fileToUpload.type },
-        body: fileToUpload,
-      });
+      checkImage(fileToUpload);
+      await putWithProgress(uploadUrl, fileToUpload);
 
       await mixesApi.confirmCover(mixId, key);
       toast.success(language === "fr" ? "Pochette enregistrée !" : "Cover saved!");
       setStep(3);
     } catch (err) {
       console.error(err);
-      toast.error(language === "fr" ? "Erreur lors du téléversement de la pochette" : "Failed to upload cover");
+      toast.error(uploadErrorMessage(err, tr));
     } finally {
       setCoverUploading(false);
     }
@@ -654,7 +659,7 @@ export default function UploadPage() {
                         <Upload className="h-4 w-4" />
                         <span>{audioFile ? (language === "fr" ? "Changer de fichier" : "Change file") : (language === "fr" ? "Choisir un fichier" : "Choose file")}</span>
                       </span>
-                      <input type="file" accept="audio/*" className="hidden" onChange={handleAudioSelect} />
+                      <input type="file" accept={AUDIO_TYPES.join(",")} className="hidden" onChange={handleAudioSelect} />
                     </label>
 
                     {audioFile && (

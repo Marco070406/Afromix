@@ -12,6 +12,7 @@ import {
   generateKey,
   isAudioType,
   isStorageConfigured,
+  storageUnavailable,
 } from "@/lib/storage";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -71,6 +72,9 @@ export async function POST(
   const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const unavailable = storageUnavailable();
+  if (unavailable) return unavailable;
 
   // Valide le body avant toute requête DB
   let body: unknown;

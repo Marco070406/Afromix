@@ -14,14 +14,6 @@ export interface CreateEventInput {
   artistId?: string;
 }
 
-interface PresignResponse {
-  uploadUrl: string;
-  key: string;
-  cdnUrl: string;
-  expiresIn: number;
-  maxBytes: number;
-}
-
 export const eventsApi = {
   list: (params?: { status?: string }) => {
     const q = params?.status ? `?status=${params.status}` : "";
@@ -32,10 +24,4 @@ export const eventsApi = {
   moderate: (id: string, data: { action: "APPROVE" } | { action: "REJECT"; reason: string }) =>
     api.patch<EventItem>(`/events/${id}`, data),
   delete: (id: string) => api.delete<{ message: string }>(`/events/${id}`),
-  presignCover: (fileName: string, contentType: string) =>
-    api.post<PresignResponse>("/upload/presign", {
-      fileName,
-      contentType,
-      folder: "events",
-    }),
 };

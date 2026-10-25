@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createPortal } from "react-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   X,
   Calendar,
@@ -14,6 +15,7 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
+import { uploadErrorMessage, uploadImage } from "@/app/(frontend)/lib/upload-image";
 import { eventsApi, type CreateEventInput } from "@/app/(frontend)/lib/api/events";
 import { artistsApi } from "@/app/(frontend)/lib/api/artists";
 import { useAuth } from "@/app/(frontend)/providers/auth-provider";
@@ -113,41 +115,16 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
     if (file) handleFileSelect(file);
   };
 
-  // Upload cover to R2/S3 and return the CDN URL
+  // Envoie l'affiche (R2/S3, ou disque en local) et retourne son URL publique
   const uploadCoverToStorage = async (file: File): Promise<string | null> => {
     try {
       setCoverUploading(true);
       setCoverUploadProgress(0);
-
-      // 1. Get presigned URL
-      const presignRes = await eventsApi.presignCover(file.name, file.type);
-      const { uploadUrl, cdnUrl } = presignRes.data;
-
-      // 2. Upload via XHR for progress tracking
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.upload.onprogress = (ev) => {
-          if (ev.lengthComputable) {
-            setCoverUploadProgress(Math.round((ev.loaded / ev.total) * 100));
-          }
-        };
-        xhr.onload = () =>
-          xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`));
-        xhr.onerror = () => reject(new Error("Upload network error"));
-        xhr.open("PUT", uploadUrl);
-        xhr.setRequestHeader("Content-Type", file.type);
-        xhr.send(file);
-      });
-
+      const { url } = await uploadImage(file, "events", setCoverUploadProgress);
       setCoverUploadProgress(100);
-      return cdnUrl;
+      return url;
     } catch (err) {
-      console.error("Cover upload error:", err);
-      toast.error(
-        language === "fr"
-          ? tr("Erreur lors de l'upload de l'image", "Image upload failed")
-          : "Failed to upload cover image"
-      );
+      toast.error(uploadErrorMessage(err, tr));
       return null;
     } finally {
       setCoverUploading(false);
@@ -212,10 +189,12 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
     let finalCoverUrl: string | undefined;
     if (coverFile) {
       const url = await uploadCoverToStorage(coverFile);
-      if (url) {
-        finalCoverUrl = url;
+      // Échec : on ne crée pas l'événement sans son affiche, l'utilisateur peut réessayer
+      if (!url) {
+        setIsSubmitting(false);
+        return;
       }
-      // If upload fails, we still allow creating the event without cover
+      finalCoverUrl = url;
     }
 
     const payload: CreateEventInput = {

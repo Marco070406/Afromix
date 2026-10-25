@@ -19,6 +19,8 @@ export async function GET(): Promise<Response> {
       where: { artistId: artist.id },
       orderBy: { createdAt: "desc" },
       take: 50,
+      // Photo de profil de l'expéditeur quand il a un compte AfroMix
+      include: { sender: { select: { profile: { select: { avatarUrl: true } } } } },
     });
 
     return ok(inquiries);

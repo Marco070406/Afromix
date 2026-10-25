@@ -5,7 +5,7 @@ import { z } from "zod";
 import { notifyFollowersNewEvent } from "@/services/notifications";
 import type { NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
-import { httpUrl } from "@/lib/validations/common";
+import { httpUrl, imageUrl } from "@/lib/validations/common";
 
 // ─── GET /api/v1/events ───────────────────────────────────────────────────────
 export async function GET(request: NextRequest): Promise<Response> {
@@ -77,7 +77,7 @@ const createEventSchema = z.object({
   startAt: z.string().min(1, "La date de début est requise"),
   endAt: z.string().optional().nullable(),
   ticketUrl: httpUrl().optional().nullable().or(z.literal("")),
-  coverUrl: z.string().optional().nullable().or(z.literal("")),
+  coverUrl: imageUrl().optional().nullable().or(z.literal("")),
   artistId: z.string().optional().nullable(),
 });
 

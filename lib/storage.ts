@@ -9,6 +9,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
+import { serviceUnavailable } from "@/lib/response";
 
 // ─── Client ───────────────────────────────────────────────────────────────────
 // Compatible AWS S3 et Cloudflare R2 (même API S3).
@@ -45,6 +46,18 @@ export function isS3Configured(): boolean {
     process.env.STORAGE_ACCESS_KEY_ID &&
     process.env.STORAGE_SECRET_ACCESS_KEY &&
     process.env.STORAGE_BUCKET
+  );
+}
+
+/**
+ * En ligne (Vercel), le disque est en lecture seule et non persistant : sans R2/S3,
+ * aucun fichier ne peut être reçu. Les routes d'envoi renvoient alors ce 503 explicite
+ * plutôt qu'une URL locale vouée à l'échec.
+ */
+export function storageUnavailable(): Response | null {
+  if (isS3Configured() || !process.env.VERCEL) return null;
+  return serviceUnavailable(
+    "Le stockage des fichiers n'est pas encore configuré sur le serveur. Réessayez plus tard."
   );
 }
 

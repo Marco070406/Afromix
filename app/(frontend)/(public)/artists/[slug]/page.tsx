@@ -310,6 +310,14 @@ export default function ArtistPage() {
             {/* Direct Booking Highlight Card */}
             <div className="rounded-3xl bg-gradient-to-r from-purple-950/40 via-[#111318] to-pink-950/30 border border-white/[0.08] p-6 sm:p-8 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                <span className="relative h-16 w-16 rounded-2xl overflow-hidden flex-shrink-0 border border-white/10 bg-brand-gradient flex items-center justify-center text-2xl font-black text-white">
+                  {artist.avatarUrl ? (
+                    <Image src={artist.avatarUrl} alt={artist.stageName} fill sizes="64px" className="object-cover" />
+                  ) : (
+                    artist.stageName[0]?.toUpperCase()
+                  )}
+                </span>
                 <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold mb-2">
                     <Sparkles className="h-3.5 w-3.5" />
@@ -325,6 +333,7 @@ export default function ArtistPage() {
                       ? tr("Festivals, soirées clubs, mariages, showcases et événements privés.", "Festivals, club nights, weddings, showcases and private events.")
                       : "Festivals, club nights, weddings, showcases, and private events."}
                   </p>
+                </div>
                 </div>
 
                 <button
@@ -540,6 +549,7 @@ export default function ArtistPage() {
         onClose={() => setIsBookingModalOpen(false)}
         artistSlug={artist.slug}
         artistStageName={artist.stageName}
+        artistAvatarUrl={artist.avatarUrl}
       />
     </div>
   );
