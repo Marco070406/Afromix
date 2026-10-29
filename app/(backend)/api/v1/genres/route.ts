@@ -30,7 +30,7 @@ const GENRE_LABELS: Record<string, string> = {
 export async function GET(): Promise<Response> {
   const cacheKey = "genres:counts";
   const cached = await cacheGet(cacheKey);
-  if (cached) return ok(cached);
+  if (cached) return ok(cached, { cdnSeconds: 600 });
 
   try {
     // Compte le nombre de mixes et tracks publiés par genre
@@ -66,7 +66,7 @@ export async function GET(): Promise<Response> {
       .sort((a, b) => b.total - a.total);
 
     await cacheSet(cacheKey, genres, 30 * 60); // 30 minutes
-    return ok(genres);
+    return ok(genres, { cdnSeconds: 600 });
   } catch (err) {
     console.error("[GET /api/v1/genres]", err);
     return serverError();

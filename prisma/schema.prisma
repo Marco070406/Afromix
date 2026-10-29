@@ -236,6 +236,7 @@ model ArtistProfile {
   @@index([slug])
   @@index([verificationStatus])
   @@index([country])
+  @@index([followerCount])
   @@map("artist_profiles")
 }
 
@@ -559,6 +560,7 @@ model StreamEvent {
   @@index([trackId, createdAt])
   @@index([userId])
   @@index([country])
+  @@index([createdAt])
   @@map("stream_events")
 }
 
@@ -701,5 +703,6 @@ model Event {
   @@index([startAt])
   @@index([createdById])
   @@index([status])
+  @@index([status, startAt])
   @@map("events")
 }

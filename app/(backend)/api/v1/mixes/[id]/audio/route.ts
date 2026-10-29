@@ -7,6 +7,7 @@
  *  3. POST /api/v1/mixes/[id]/audio/confirm { key, durationSec? } → { audioUrl, status: "PROCESSING" }
  */
 
+import { limitOrNull } from "@/lib/redis";
 import {
   createPresignedUploadUrl,
   generateKey,
@@ -73,7 +74,7 @@ export async function POST(
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const unavailable = storageUnavailable();
+  const unavailable = storageUnavailable() ?? (await limitOrNull("upload", session.sub, 60, 600));
   if (unavailable) return unavailable;
 
   // Valide le body avant toute requête DB

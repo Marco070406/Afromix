@@ -23,7 +23,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const cacheKey = `popular:${limit}:${genre ?? "all"}:${type}:${sortBy}`;
   const cached = await cacheGet(cacheKey);
-  if (cached) return ok(cached);
+  if (cached) return ok(cached, { cdnSeconds: 300 });
 
   try {
     const [mixes, tracks, artists] = await Promise.all([
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     };
 
     await cacheSet(cacheKey, result, 15 * 60); // 15 min
-    return ok(result);
+    return ok(result, { cdnSeconds: 300 });
   } catch (err) {
     console.error("[GET /api/v1/popular]", err);
     return serverError();

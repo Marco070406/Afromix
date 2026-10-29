@@ -1,3 +1,4 @@
+import { limitOrNull } from "@/lib/redis";
 import { createPresignedUploadUrl, generateKey, storageUnavailable } from "@/lib/storage";
 import { getSession } from "@/lib/auth";
 import { presignedUploadSchema } from "@/lib/validations/upload";
@@ -9,7 +10,7 @@ export async function POST(request: Request): Promise<Response> {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const unavailable = storageUnavailable();
+  const unavailable = storageUnavailable() ?? (await limitOrNull("upload", session.sub, 60, 600));
   if (unavailable) return unavailable;
 
   let body: unknown;

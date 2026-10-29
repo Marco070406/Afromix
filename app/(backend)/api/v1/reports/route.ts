@@ -1,3 +1,4 @@
+import { limitOrNull } from "@/lib/redis";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { created, badRequest, unauthorized, notFound, serverError } from "@/lib/response";
@@ -14,6 +15,9 @@ const reportSchema = z.object({
 export async function POST(request: Request): Promise<Response> {
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const limited = await limitOrNull("report", session.sub, 20, 3600);
+  if (limited) return limited;
 
   let body: unknown;
   try { body = await request.json(); } catch { return badRequest("Invalid JSON body"); }

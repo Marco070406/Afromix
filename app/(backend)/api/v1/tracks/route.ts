@@ -1,3 +1,4 @@
+import { limitOrNull } from "@/lib/redis";
 import { listTracks, createTrack } from "@/services/tracks";
 import { trackQuerySchema, createTrackSchema } from "@/lib/validations/track";
 import { ok, created, badRequest, unauthorized, forbidden, serverError } from "@/lib/response";
@@ -25,6 +26,9 @@ export async function GET(request: NextRequest): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const limited = await limitOrNull("content-create", session.sub, 30, 3600);
+  if (limited) return limited;
   if (session.role !== "ARTIST") {
     return forbidden("Only artists can upload tracks");
   }

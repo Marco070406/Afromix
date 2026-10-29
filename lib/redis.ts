@@ -41,13 +41,46 @@ if (process.env.NODE_ENV !== "production") {
 
 // ─── Cache helpers ────────────────────────────────────────────────────────────
 
+// Repli en mémoire quand Redis est absent ou en panne : chaque instance du serveur
+// garde ses propres résultats, ce qui évite déjà la plupart des allers-retours vers la base.
+const MEMORY_CACHE_MAX = 500;
+const memoryCache = new Map<string, { value: string; expiresAt: number }>();
+
+function memoryGet(key: string): string | null {
+  const entry = memoryCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    memoryCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function memorySet(key: string, value: string, ttlSeconds: number): void {
+  if (memoryCache.size >= MEMORY_CACHE_MAX) {
+    const now = Date.now();
+    for (const [k, v] of memoryCache) if (v.expiresAt <= now) memoryCache.delete(k);
+    // Toujours plein : on retire les entrées les plus anciennes (ordre d'insertion)
+    for (const k of memoryCache.keys()) {
+      if (memoryCache.size < MEMORY_CACHE_MAX) break;
+      memoryCache.delete(k);
+    }
+  }
+  memoryCache.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+}
+
+/** Motif Redis (« * » seulement) vers expression régulière, pour le cache mémoire. */
+function patternToRegex(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+  return new RegExp(`^${escaped}$`);
+}
+
 /**
- * Get a cached value. Returns null on miss, error, or when Redis is unavailable.
+ * Get a cached value. Returns null on miss or error.
  */
 export async function cacheGet<T>(key: string): Promise<T | null> {
-  if (!redis) return null;
   try {
-    const raw = await redis.get(key);
+    const raw = redis ? await redis.get(key) : memoryGet(key);
     return raw ? (JSON.parse(raw) as T) : null;
   } catch {
     return null;
@@ -56,26 +89,29 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
 
 /**
  * Set a cached value with optional TTL in seconds (default: 5 minutes).
- * No-op when Redis is unavailable.
  */
 export async function cacheSet(
   key: string,
   value: unknown,
   ttlSeconds = 300
 ): Promise<void> {
-  if (!redis) return;
   try {
-    await redis.set(key, JSON.stringify(value), "EX", ttlSeconds);
+    const raw = JSON.stringify(value);
+    if (redis) await redis.set(key, raw, "EX", ttlSeconds);
+    else memorySet(key, raw, ttlSeconds);
   } catch {
     // Non-blocking — cache failures should not crash the app
   }
 }
 
 /**
- * Delete one or more cache keys. No-op when Redis is unavailable.
+ * Delete one or more cache keys.
  */
 export async function cacheDel(...keys: string[]): Promise<void> {
-  if (!redis) return;
+  if (!redis) {
+    for (const k of keys) memoryCache.delete(k);
+    return;
+  }
   try {
     if (keys.length > 0) await redis.del(...keys);
   } catch {
@@ -84,10 +120,14 @@ export async function cacheDel(...keys: string[]): Promise<void> {
 }
 
 /**
- * Invalidate all keys matching a pattern. No-op when Redis is unavailable.
+ * Invalidate all keys matching a pattern.
  */
 export async function cacheDelPattern(pattern: string): Promise<void> {
-  if (!redis) return;
+  if (!redis) {
+    const re = patternToRegex(pattern);
+    for (const k of memoryCache.keys()) if (re.test(k)) memoryCache.delete(k);
+    return;
+  }
   try {
     let cursor = "0";
     do {
@@ -154,4 +194,23 @@ export async function rateLimit(
   } catch {
     return memoryRateLimit(windowKey, limit, windowSeconds, resetAt);
   }
+}
+
+/**
+ * Limite des routes d'écriture : renvoie une réponse 429 prête à être retournée,
+ * ou null si la requête peut passer. `who` = identifiant de session, sinon IP.
+ */
+export async function limitOrNull(
+  scope: string,
+  who: string,
+  limit: number,
+  windowSeconds: number
+): Promise<Response | null> {
+  const { allowed, resetAt } = await rateLimit(`${scope}:${who}`, limit, windowSeconds);
+  if (allowed) return null;
+  const retryAfter = Math.max(1, resetAt - Math.floor(Date.now() / 1000));
+  return Response.json(
+    { success: false, error: "Trop de requêtes, réessayez dans quelques instants." },
+    { status: 429, headers: { "Retry-After": String(retryAfter) } }
+  );
 }

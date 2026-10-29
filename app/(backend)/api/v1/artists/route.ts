@@ -14,7 +14,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   try {
     const result = await listArtists(parsed.data);
-    return ok(result.items, { meta: result.meta });
+    return ok(result.items, { meta: result.meta, cdnSeconds: 60 });
   } catch (err) {
     console.error("[GET /api/v1/artists]", err);
     return serverError();

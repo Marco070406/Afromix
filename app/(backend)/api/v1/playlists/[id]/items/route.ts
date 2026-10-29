@@ -1,3 +1,4 @@
+import { limitOrNull } from "@/lib/redis";
 import {
   addPlaylistItem,
   removePlaylistItem,
@@ -15,6 +16,9 @@ export async function POST(
   const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const limited = await limitOrNull("playlist-item", session.sub, 120, 600);
+  if (limited) return limited;
 
   let body: unknown;
   try { body = await request.json(); } catch { return badRequest("Invalid JSON body"); }

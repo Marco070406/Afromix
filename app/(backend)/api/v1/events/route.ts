@@ -1,3 +1,4 @@
+import { limitOrNull } from "@/lib/redis";
 import { ok, created, unauthorized, forbidden, badRequest, serverError } from "@/lib/response";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -84,6 +85,9 @@ const createEventSchema = z.object({
 export async function POST(request: NextRequest): Promise<Response> {
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const limited = await limitOrNull("event-create", session.sub, 10, 3600);
+  if (limited) return limited;
 
   // Seuls les ARTIST et ADMIN peuvent créer des événements
   if (session.role !== "ARTIST" && session.role !== "ADMIN") {

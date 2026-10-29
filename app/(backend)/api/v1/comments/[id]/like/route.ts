@@ -1,3 +1,4 @@
+import { limitOrNull } from "@/lib/redis";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { ok, unauthorized, notFound, serverError } from "@/lib/response";
@@ -19,6 +20,9 @@ export async function POST(
   const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const limited = await limitOrNull("like", session.sub, 60, 60);
+  if (limited) return limited;
 
   const comment = await prisma.comment.findUnique({
     where: { id },

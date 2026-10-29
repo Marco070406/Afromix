@@ -31,14 +31,26 @@ export type ApiResponse<T> = ApiSuccess<T> | ApiError;
 
 export function ok<T>(
   data: T,
-  options?: { status?: number; meta?: PaginationMeta }
+  options?: { status?: number; meta?: PaginationMeta; cdnSeconds?: number }
 ): Response {
   const body: ApiSuccess<T> = {
     success: true,
     data,
     ...(options?.meta && { meta: options.meta }),
   };
-  return Response.json(body, { status: options?.status ?? 200 });
+  return Response.json(body, {
+    status: options?.status ?? 200,
+    headers: options?.cdnSeconds ? publicCacheHeaders(options.cdnSeconds) : undefined,
+  });
+}
+
+/**
+ * Mise en cache sur le CDN (Vercel) : la réponse est servie depuis le point de présence
+ * le plus proche pendant `seconds`, puis rafraîchie en arrière-plan. Réservé aux
+ * réponses publiques identiques pour tous les visiteurs (jamais de données de session).
+ */
+export function publicCacheHeaders(seconds: number): HeadersInit {
+  return { "Cache-Control": `public, s-maxage=${seconds}, stale-while-revalidate=${seconds * 10}` };
 }
 
 export function created<T>(data: T): Response {

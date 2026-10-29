@@ -23,7 +23,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const cacheKey = `new-releases:${limit}:${genre ?? "all"}:${type}:${days}`;
   const cached = await cacheGet(cacheKey);
-  if (cached) return ok(cached);
+  if (cached) return ok(cached, { cdnSeconds: 120 });
 
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     };
 
     await cacheSet(cacheKey, result, 10 * 60);
-    return ok(result);
+    return ok(result, { cdnSeconds: 120 });
   } catch (err) {
     console.error("[GET /api/v1/new-releases]", err);
     return serverError();

@@ -1,3 +1,4 @@
+import { limitOrNull } from "@/lib/redis";
 import { createPlaylist, listUserPlaylists, serializePlaylist } from "@/services/playlists";
 import { createPlaylistSchema, playlistQuerySchema } from "@/lib/validations/playlist";
 import { ok, created, badRequest, unauthorized, serverError } from "@/lib/response";
@@ -41,6 +42,9 @@ export async function GET(request: NextRequest): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const limited = await limitOrNull("playlist", session.sub, 30, 3600);
+  if (limited) return limited;
 
   let body: unknown;
   try { body = await request.json(); } catch { return badRequest("Invalid JSON body"); }

@@ -32,7 +32,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   const { q, type, genre, country, city, mixType, trackType, page, pageSize, sortBy } = parsed.data;
   const cacheKey = `search:${JSON.stringify(parsed.data)}`;
   const cached = await cacheGet(cacheKey);
-  if (cached) return ok(cached);
+  if (cached) return ok(cached, { cdnSeconds: 30 });
 
   const skip = (page - 1) * pageSize;
   // Pays et ville combinés : deux spreads "artist" successifs s'écraseraient
@@ -157,7 +157,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     };
 
     await cacheSet(cacheKey, result, 60);
-    return ok(result);
+    return ok(result, { cdnSeconds: 30 });
   } catch (err) {
     console.error("[GET /api/v1/search]", err);
     return serverError();

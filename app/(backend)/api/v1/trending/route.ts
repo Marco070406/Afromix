@@ -23,7 +23,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const cacheKey = `trending:${limit}:${period}:${genre ?? "all"}:${type}`;
   const cached = await cacheGet(cacheKey);
-  if (cached) return ok(cached);
+  if (cached) return ok(cached, { cdnSeconds: 60 });
 
   const periodMs = { "24h": 24, "7d": 168, "30d": 720 }[period] * 60 * 60 * 1000;
   const since = new Date(Date.now() - periodMs);
@@ -119,23 +119,54 @@ export async function GET(request: NextRequest): Promise<Response> {
         : Promise.resolve([]),
 
       // ── Trending artists (most listened to in period) ─────────────
+      // Agrégats légers d'abord, puis détail des seuls artistes retenus : on ne charge
+      // jamais tous les profils avec tous leurs mixes.
       (type === "artists" || type === "all")
         ? (async () => {
-            const streamGroups = await prisma.streamEvent.groupBy({
-              by: ["mixId"],
-              where: { mixId: { not: null }, createdAt: { gte: since } },
-              _count: { mixId: true },
-            });
+            const [streamGroups, allTimeGroups, candidates] = await Promise.all([
+              prisma.streamEvent.groupBy({
+                by: ["mixId"],
+                where: { mixId: { not: null }, createdAt: { gte: since } },
+                _count: { mixId: true },
+              }),
+              prisma.mix.groupBy({
+                by: ["artistId"],
+                where: { status: "PUBLISHED" },
+                _sum: { playCount: true },
+              }),
+              prisma.artistProfile.findMany({
+                where: { ...(genre && { genres: { has: genre } }) },
+                select: { id: true, followerCount: true },
+              }),
+            ]);
 
-            const mixStreamMap = new Map<string, number>();
-            for (const s of streamGroups) {
-              if (s.mixId) mixStreamMap.set(s.mixId, s._count.mixId);
+            // Écoutes de la période, ramenées à l'artiste de chaque mix publié
+            const streamedIds = streamGroups.map((g) => g.mixId).filter((id): id is string => !!id);
+            const streamedMixes = streamedIds.length
+              ? await prisma.mix.findMany({
+                  where: { id: { in: streamedIds }, status: "PUBLISHED" },
+                  select: { id: true, artistId: true },
+                })
+              : [];
+            const mixArtist = new Map(streamedMixes.map((m) => [m.id, m.artistId]));
+            const periodStreams = new Map<string, number>();
+            for (const g of streamGroups) {
+              const artistId = g.mixId ? mixArtist.get(g.mixId) : undefined;
+              if (artistId) periodStreams.set(artistId, (periodStreams.get(artistId) ?? 0) + g._count.mixId);
             }
+            const allTimePlays = new Map(allTimeGroups.map((g) => [g.artistId, g._sum.playCount ?? 0]));
 
-            const allArtists = await prisma.artistProfile.findMany({
-              where: {
-                ...(genre && { genres: { has: genre } }),
-              },
+            const top = candidates
+              .map((a) => ({
+                id: a.id,
+                followerCount: a.followerCount,
+                score: periodStreams.get(a.id) || allTimePlays.get(a.id) || 0,
+              }))
+              .sort((a, b) => b.score - a.score || b.followerCount - a.followerCount)
+              .slice(0, limit);
+
+            const details = await prisma.artistProfile.findMany({
+              where: { id: { in: top.map((a) => a.id) } },
               select: {
                 id: true,
                 userId: true,
@@ -159,57 +190,25 @@ export async function GET(request: NextRequest): Promise<Response> {
                     playCount: true,
                   },
                   orderBy: { playCount: "desc" },
+                  take: 1,
                 },
               },
             });
+            const byId = new Map(details.map((a) => [a.id, a]));
 
-            const scored = allArtists.map((a) => {
-              let periodStreams = 0;
-              let allTimePlays = 0;
-              for (const m of a.mixes) {
-                const s = mixStreamMap.get(m.id) ?? 0;
-                periodStreams += s;
-                allTimePlays += m.playCount;
-              }
-
-              const score = periodStreams > 0 ? periodStreams : allTimePlays;
-              const topMix = a.mixes[0]
-                ? {
-                    id: a.mixes[0].id,
-                    slug: a.mixes[0].slug,
-                    title: a.mixes[0].title,
-                    coverUrl: a.mixes[0].coverUrl,
-                    audioUrl: a.mixes[0].audioUrl,
-                    durationSec: a.mixes[0].durationSec,
-                    playCount: a.mixes[0].playCount,
-                  }
-                : null;
-
-              return {
-                id: a.id,
-                userId: a.userId,
-                slug: a.slug,
-                stageName: a.stageName,
-                avatarUrl: a.avatarUrl,
-                country: a.country,
-                verified: a.verified,
-                followerCount: a.followerCount,
-                genres: a.genres,
-                availableForBooking: a.availableForBooking,
-                monthlyPlays: score,
-                topMix,
-              };
+            return top.flatMap(({ id, score }) => {
+              const a = byId.get(id);
+              if (!a) return [];
+              const { mixes: topMixes, ...artist } = a;
+              return [{ ...artist, monthlyPlays: score, topMix: topMixes[0] ?? null }];
             });
-
-            scored.sort((a, b) => b.monthlyPlays - a.monthlyPlays || b.followerCount - a.followerCount);
-            return scored.slice(0, limit);
           })()
         : Promise.resolve([]),
     ]);
 
     const result = { mixes, tracks, artists, period, genre: genre ?? null };
     await cacheSet(cacheKey, result, 5 * 60); // 5 minutes
-    return ok(result);
+    return ok(result, { cdnSeconds: 60 });
   } catch (err) {
     console.error("[GET /api/v1/trending]", err);
     return serverError();

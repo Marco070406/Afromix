@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { ok, created, badRequest, unauthorized, notFound, serverError } from "@/lib/response";
 import { notifyNewFollower } from "@/services/notifications";
 import { z } from "zod";
-import { cacheDel } from "@/lib/redis";
+import { cacheDel, limitOrNull } from "@/lib/redis";
 
 const followSchema = z.object({
   artistUserId: z.string().min(1).optional(),
@@ -16,6 +16,9 @@ const followSchema = z.object({
 export async function POST(request: Request): Promise<Response> {
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const limited = await limitOrNull("follow", session.sub, 60, 60);
+  if (limited) return limited;
 
   let body: unknown;
   try { body = await request.json(); } catch { return badRequest("Invalid JSON body"); }

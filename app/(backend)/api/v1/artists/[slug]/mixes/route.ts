@@ -22,7 +22,7 @@ export async function GET(
 
   try {
     const result = await getArtistMixes(slug, parsed.data.page, parsed.data.pageSize);
-    return ok(result.items, { meta: result.meta });
+    return ok(result.items, { meta: result.meta, cdnSeconds: 60 });
   } catch (err) {
     const e = err as Error & { status?: number };
     if (e.status === 404) return notFound(e.message);

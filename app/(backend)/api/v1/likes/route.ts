@@ -1,3 +1,4 @@
+import { limitOrNull } from "@/lib/redis";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { ok, created, badRequest, unauthorized, notFound, serverError } from "@/lib/response";
@@ -13,6 +14,9 @@ const likeSchema = z.object({
 export async function POST(request: Request): Promise<Response> {
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const limited = await limitOrNull("like", session.sub, 60, 60);
+  if (limited) return limited;
 
   let body: unknown;
   try { body = await request.json(); } catch { return badRequest("Invalid JSON body"); }

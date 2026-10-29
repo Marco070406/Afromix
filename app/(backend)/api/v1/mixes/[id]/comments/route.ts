@@ -1,3 +1,4 @@
+import { limitOrNull } from "@/lib/redis";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { ok, created, badRequest, unauthorized, notFound, serverError } from "@/lib/response";
@@ -76,6 +77,9 @@ export async function POST(
   const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const limited = await limitOrNull("comment", session.sub, 10, 60);
+  if (limited) return limited;
 
   const mix = await prisma.mix.findFirst({
     where: { OR: [{ id }, { slug: id }] },
