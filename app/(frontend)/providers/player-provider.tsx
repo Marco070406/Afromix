@@ -7,6 +7,7 @@ import {
 import { mixesApi } from "@/app/(frontend)/lib/api/mixes";
 
 const PLAYER_STORAGE_KEY = "afromix_player_state";
+const SAVE_INTERVAL_MS = 3000;
 
 export interface PlayerTrack {
   id: string;
@@ -72,7 +73,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const handleEndedRef = useRef<() => void>(() => {});
   const loadTrackRef = useRef<(t: PlayerTrack) => void>(() => {});
   const isShuffledRef = useRef(false);
-  const isRestoringRef = useRef(false); // true during localStorage restore to skip auto-play
+  // Restauration après rechargement : le titre est déjà chargé, l'effet de file ne doit pas le relancer
+  const skipQueueLoadRef = useRef(false);
+  const pendingSeekRef = useRef<number | null>(null); // position à rejoindre dès que l'audio est prêt
+  const pendingResumeRef = useRef(false); // la lecture était en cours avant le rechargement
+  const removeGestureListenerRef = useRef<() => void>(() => {});
+  const persistRef = useRef<() => void>(() => {});
+  const lastSaveRef = useRef(0);
 
   // Init audio element — une seule fois au mount
   useEffect(() => {
@@ -80,8 +87,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     audio.volume = volume;
     audioRef.current = audio;
 
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const onDurationChange = () => setDuration(audio.duration || 0);
+    const onTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+      if (Date.now() - lastSaveRef.current > SAVE_INTERVAL_MS) persistRef.current();
+    };
+    const onDurationChange = () => {
+      if (Number.isFinite(audio.duration)) setDuration(audio.duration);
+    };
     // Délègue à la ref : toujours la version fraîche de handleEnded
     const onEnded = () => handleEndedRef.current();
     const onCanPlay = () => setIsLoading(false);
@@ -136,8 +148,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     handleEndedRef.current = handleEnded;
   }, [handleEnded]);
 
+  // Annule la reprise en attente : l'utilisateur a choisi une autre action
+  const cancelPendingResume = useCallback(() => {
+    pendingResumeRef.current = false;
+    removeGestureListenerRef.current();
+  }, []);
+
   const loadTrack = useCallback((t: PlayerTrack) => {
     const audio = audioRef.current!;
+    cancelPendingResume();
+    pendingSeekRef.current = null;
     setIsLoading(true);
     setTrack(t);
     setCurrentTime(0);
@@ -149,7 +169,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       .catch(() => setIsPlaying(false))
       .finally(() => setIsLoading(false));
     playCountedRef.current = null;
-  }, []);
+  }, [cancelPendingResume]);
 
   // Maintenir loadTrackRef synchronisée
   useEffect(() => {
@@ -158,7 +178,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // Load track when queueIndex or queueVersion changes
   useEffect(() => {
-    if (isRestoringRef.current) return; // skip during localStorage restore
+    if (skipQueueLoadRef.current) {
+      skipQueueLoadRef.current = false;
+      return;
+    }
     if (queue.length === 0) return;
     const t = queue[queueIndex];
     if (!t) return;
@@ -188,13 +211,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [loadTrack]);
 
   const pause = useCallback(() => {
+    cancelPendingResume();
     audioRef.current?.pause();
     setIsPlaying(false);
-  }, []);
+  }, [cancelPendingResume]);
 
   const resume = useCallback(() => {
+    cancelPendingResume();
     audioRef.current?.play().then(() => setIsPlaying(true));
-  }, []);
+  }, [cancelPendingResume]);
 
   const togglePlay = useCallback(() => {
     if (isPlaying) pause(); else resume();
@@ -202,6 +227,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const seek = useCallback((seconds: number) => {
     if (!audioRef.current) return;
+    if (pendingSeekRef.current !== null) pendingSeekRef.current = seconds;
     audioRef.current.currentTime = seconds;
     setCurrentTime(seconds);
   }, []);
@@ -271,6 +297,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearQueue = useCallback(() => {
+    cancelPendingResume();
     setQueue([]);
     setQueueIndex(0);
     audioRef.current?.pause();
@@ -278,9 +305,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setTrack(null);
     // Clear persisted state when user explicitly closes the player
     if (typeof window !== "undefined") {
-      try { window.localStorage.removeItem("afromix_player_state"); } catch {}
+      try { window.localStorage.removeItem(PLAYER_STORAGE_KEY); } catch {}
     }
-  }, []);
+  }, [cancelPendingResume]);
 
   // ── Media Session API — update on track change ──
   useEffect(() => {
@@ -311,28 +338,53 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
   }, [isPlaying]);
 
-  // ── localStorage persistence — save on track/queue/volume change ──
+  // ── localStorage persistence — enregistre titre, file, position et état de lecture ──
   useEffect(() => {
-    if (!track) return;
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(
-        PLAYER_STORAGE_KEY,
-        JSON.stringify({
-          currentTrackId: track.id,
-          queue,
-          queueIndex,
-          volume,
-        })
-      );
-    } catch {}
-  }, [track, queue, queueIndex, volume]);
+    const persist = () => {
+      if (!track) return;
+      lastSaveRef.current = Date.now();
+      const audio = audioRef.current;
+      try {
+        window.localStorage.setItem(
+          PLAYER_STORAGE_KEY,
+          JSON.stringify({
+            currentTrackId: track.id,
+            queue,
+            queueIndex,
+            volume,
+            isShuffled,
+            repeatMode,
+            // Tant que la restauration n'est pas terminée, on garde les valeurs d'avant le rechargement
+            position: pendingSeekRef.current ?? audio?.currentTime ?? 0,
+            wasPlaying: pendingResumeRef.current || isPlaying,
+          })
+        );
+      } catch {}
+    };
+    persistRef.current = persist;
+    persist();
+  }, [track, queue, queueIndex, volume, isShuffled, repeatMode, isPlaying]);
+
+  // Dernière sauvegarde au départ de la page (rechargement, fermeture, passage en arrière-plan)
+  useEffect(() => {
+    const save = () => persistRef.current();
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") save();
+    };
+    window.addEventListener("pagehide", save);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", save);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   // ── localStorage persistence — restore once at mount ──
   // NOTE: This effect must run AFTER the audio init effect (order of declaration matters in React).
   // The audio init effect is declared first (above), so this runs after audio is ready.
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    const audio = audioRef.current;
+    if (!audio) return;
     try {
       const raw = window.localStorage.getItem(PLAYER_STORAGE_KEY);
       if (!raw) return;
@@ -341,29 +393,73 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         queue?: PlayerTrack[];
         queueIndex?: number;
         volume?: number;
+        isShuffled?: boolean;
+        repeatMode?: "none" | "one" | "all";
+        position?: number;
+        wasPlaying?: boolean;
       };
       if (!saved.queue?.length || !saved.currentTrackId) return;
       const idx = Math.max(0, Math.min(saved.queueIndex ?? 0, saved.queue.length - 1));
       const t = saved.queue[idx] as PlayerTrack;
       if (!t?.audioUrl) return;
-      // Set flag BEFORE state updates so the queueIndex-watcher effect skips auto-play
-      isRestoringRef.current = true;
+
+      // Un titre terminé repart du début, sans se relancer seul
+      const position = typeof saved.position === "number" && saved.position > 0 ? saved.position : 0;
+      const finished = !!t.durationSec && position >= t.durationSec - 3;
+      const startAt = finished ? 0 : position;
+
+      // L'état initial de queueIndex vaut 0 : seul un autre index déclenche l'effet de file
+      if (idx !== 0) skipQueueLoadRef.current = true;
+      pendingSeekRef.current = startAt;
+      pendingResumeRef.current = !!saved.wasPlaying && !finished;
+      // L'écoute a déjà été comptée avant le rechargement
+      if (startAt > 30) playCountedRef.current = t.id;
+
       // Restauration unique depuis un système externe (localStorage + <audio>) :
       // ces états pilotent aussi l'élément audio, un état initial paresseux ne suffit pas.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setQueue(saved.queue);
       setQueueIndex(idx);
       setTrack(t);
+      setCurrentTime(startAt);
+      setDuration(t.durationSec ?? 0);
+      if (saved.isShuffled) {
+        isShuffledRef.current = true;
+        setIsShuffled(true);
+      }
+      if (saved.repeatMode) setRepeatMode(saved.repeatMode);
       const vol = typeof saved.volume === "number" ? saved.volume : 0.8;
       setVolumeState(vol);
-      if (audioRef.current) {
-        audioRef.current.src = t.audioUrl;
-        audioRef.current.volume = vol;
-        // Do NOT call .play() — restore in paused state to respect browser autoplay policies
-      }
-      // Clear the flag after the current microtask queue drains (after React's state batching)
-      Promise.resolve().then(() => { isRestoringRef.current = false; });
+      audio.volume = vol;
+
+      const start = () => {
+        if (pendingSeekRef.current) audio.currentTime = pendingSeekRef.current;
+        pendingSeekRef.current = null;
+        if (!pendingResumeRef.current) return;
+        audio.play().then(() => {
+          pendingResumeRef.current = false;
+          setIsPlaying(true);
+        }).catch(() => {
+          // Lecture automatique bloquée par le navigateur : reprise au premier clic sur la page.
+          // « click » et non « pointerdown » : le bouton lecture agit d'abord et annule cette reprise.
+          const onClick = () => {
+            cancelPendingResume();
+            audio.play().then(() => setIsPlaying(true)).catch(() => {});
+          };
+          document.addEventListener("click", onClick);
+          removeGestureListenerRef.current = () => document.removeEventListener("click", onClick);
+        });
+      };
+      audio.addEventListener("loadedmetadata", start, { once: true });
+      audio.src = t.audioUrl;
+      audio.load();
+
+      return () => {
+        audio.removeEventListener("loadedmetadata", start);
+        removeGestureListenerRef.current();
+      };
     } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once at mount
 
   return (
