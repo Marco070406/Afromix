@@ -16,6 +16,7 @@ function isAllowedImageHost(hostname: string): boolean {
   if (cdn && hostname === new URL(cdn).hostname) return true;
   return (
     hostname.endsWith(".r2.cloudflarestorage.com") ||
+    hostname.endsWith(".public.blob.vercel-storage.com") ||
     hostname === "cdn.afromix.io" ||
     hostname === "images.unsplash.com"
   );

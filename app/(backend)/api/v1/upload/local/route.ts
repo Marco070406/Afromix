@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/response";
 import {
-  isS3Configured,
+  isRemoteStorageConfigured,
   MAX_AUDIO_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
 } from "@/lib/storage";
@@ -25,8 +25,8 @@ const AUDIO_EXT = new Set(["mp3", "wav", "aiff", "flac", "ogg"]);
  * correspondre à l'extension, et la taille est plafonnée.
  */
 export async function PUT(request: NextRequest): Promise<Response> {
-  // Avec un stockage S3/R2 configuré, les uploads passent par les URL présignées
-  if (isS3Configured()) return notFound();
+  // Avec un stockage distant configuré, les uploads passent par les URL présignées
+  if (isRemoteStorageConfigured()) return notFound();
 
   const session = await getSession();
   if (!session) return unauthorized();

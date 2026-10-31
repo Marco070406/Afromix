@@ -6,6 +6,7 @@ import {
   type PutObjectCommandInput,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { del as blobDelete, head as blobHead, issueSignedToken, presignUrl, put as blobPut } from "@vercel/blob";
 import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
@@ -55,10 +56,19 @@ export function isS3Configured(): boolean {
  * plutôt qu'une URL locale vouée à l'échec.
  */
 export function storageUnavailable(): Response | null {
-  if (isS3Configured() || !process.env.VERCEL) return null;
+  if (isRemoteStorageConfigured() || !process.env.VERCEL) return null;
   return serviceUnavailable(
     "Le stockage des fichiers n'est pas encore configuré sur le serveur. Réessayez plus tard."
   );
+}
+
+/** Vercel Blob : BLOB_READ_WRITE_TOKEN est posé par Vercel quand le store est relié au projet. */
+export function isBlobConfigured(): boolean {
+  return !isS3Configured() && !!process.env.BLOB_READ_WRITE_TOKEN;
+}
+
+export function isRemoteStorageConfigured(): boolean {
+  return isS3Configured() || isBlobConfigured();
 }
 
 export function isStorageConfigured(): boolean {
@@ -161,6 +171,21 @@ export function generateKey(
 }
 
 /**
+ * Adresse publique d'un store Vercel Blob : son identifiant fait partie du jeton
+ * (vercel_blob_rw_<storeId>_<secret>). L'URL d'un fichier est ainsi connue avant son envoi.
+ */
+function blobBaseUrl(): string {
+  const storeId = process.env.BLOB_READ_WRITE_TOKEN?.split("_")[3];
+  if (!storeId) throw new Error("BLOB_READ_WRITE_TOKEN invalide.");
+  return `https://${storeId.toLowerCase()}.public.blob.vercel-storage.com`;
+}
+
+/** URL publique Vercel Blob d'une clé stockée. */
+function blobUrl(key: string): string {
+  return `${blobBaseUrl()}/${key}`;
+}
+
+/**
  * Retourne l'URL CDN publique pour une clé stockée.
  */
 export function cdnUrl(key: string): string {
@@ -170,6 +195,7 @@ export function cdnUrl(key: string): string {
     if (!CDN_BASE) throw new Error("STORAGE_CDN_URL manquant : URL publique du bucket requise.");
     return `${CDN_BASE.replace(/\/$/, "")}/${key}`;
   }
+  if (isBlobConfigured()) return blobUrl(key);
   return `/uploads/${key}`;
 }
 
@@ -191,6 +217,10 @@ export async function uploadObject(
   body: Buffer | Uint8Array,
   options: UploadOptions
 ): Promise<void> {
+  if (isBlobConfigured()) {
+    await blobPut(key, Buffer.from(body), { access: "public", contentType: options.contentType, addRandomSuffix: false });
+    return;
+  }
   if (!isS3Configured()) {
     const cleanKey = path.normalize(key).replace(/^(\.\.[\/\\])+/, "");
     const filePath = path.join(process.cwd(), "public", "uploads", cleanKey);
@@ -208,6 +238,33 @@ export async function uploadObject(
     Metadata: options.metadata,
   };
   await s3.send(new PutObjectCommand(input));
+}
+
+/**
+ * URL présignée Vercel Blob : un PUT unique, limité à cette clé, ce type et cette taille.
+ * Le navigateur envoie le fichier directement, sans passer par une fonction serverless.
+ */
+async function createBlobUploadUrl(key: string, contentType: string, ttlSeconds: number, maxBytes: number) {
+  const validUntil = Date.now() + ttlSeconds * 1000;
+  const signed = await issueSignedToken({
+    pathname: key,
+    operations: ["put"],
+    validUntil,
+    allowedContentTypes: [contentType],
+    maximumSizeInBytes: maxBytes,
+  });
+  const { presignedUrl } = await presignUrl(signed, {
+    operation: "put",
+    access: "public",
+    pathname: key,
+    validUntil,
+    allowedContentTypes: [contentType],
+    maximumSizeInBytes: maxBytes,
+    addRandomSuffix: false,
+    allowOverwrite: false,
+    cacheControlMaxAge: 31536000,
+  });
+  return presignedUrl;
 }
 
 // ─── URL presignée ────────────────────────────────────────────────────────────
@@ -237,6 +294,11 @@ export async function createPresignedUploadUrl(
   const ttl = isAudio ? PRESIGN_TTL_AUDIO : expiresIn;
   const maxBytes = isAudio ? MAX_AUDIO_SIZE_BYTES : MAX_IMAGE_SIZE_BYTES;
 
+  if (isBlobConfigured()) {
+    const uploadUrl = await createBlobUploadUrl(key, contentType, ttl, maxBytes);
+    return { uploadUrl, key, cdnUrl: cdnUrl(key), expiresIn: ttl, maxBytes };
+  }
+
   if (!isS3Configured()) {
     // Mode développement local : upload direct vers l'endpoint local
     const uploadUrl = `/api/v1/upload/local?key=${encodeURIComponent(key)}`;
@@ -261,6 +323,14 @@ export async function createPresignedUploadUrl(
  * Ne lève pas d'erreur si l'objet n'existe pas.
  */
 export async function deleteObject(key: string): Promise<void> {
+  if (isBlobConfigured()) {
+    try {
+      await blobDelete(blobUrl(key));
+    } catch {
+      // Ignore si le fichier n'existe pas
+    }
+    return;
+  }
   if (!isS3Configured()) {
     try {
       const cleanKey = path.normalize(key).replace(/^(\.\.[\/\\])+/, "");
@@ -281,6 +351,14 @@ export async function deleteObject(key: string): Promise<void> {
 // ─── Vérification d'existence ─────────────────────────────────────────────────
 
 export async function objectExists(key: string): Promise<boolean> {
+  if (isBlobConfigured()) {
+    try {
+      await blobHead(blobUrl(key));
+      return true;
+    } catch {
+      return false;
+    }
+  }
   if (!isS3Configured()) {
     try {
       const cleanKey = path.normalize(key).replace(/^(\.\.[\/\\])+/, "");

@@ -28,6 +28,7 @@
     "@radix-ui/react-tooltip": "1.2.16",
     "@tanstack/react-query": "5.104.0",
     "@tanstack/react-query-devtools": "5.104.0",
+    "@vercel/blob": "^2.8.2",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -64,5 +65,10 @@
     "prisma@7.10.1": true,
     "@prisma/engines@7.10.1": true,
     "unrs-resolver@1.12.2": true
+  },
+  "overrides": {
+    "@vercel/cli-config": {
+      "zod": "$zod"
+    }
   }
 }

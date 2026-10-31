@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
       // Cloudflare R2 / S3 — CDN public
       { protocol: "https", hostname: "**.r2.cloudflarestorage.com" },
       { protocol: "https", hostname: "cdn.afromix.io" },
+      // Vercel Blob — stockage public du projet
+      { protocol: "https", hostname: "**.public.blob.vercel-storage.com" },
       // Visuels de démonstration de la base
       { protocol: "https", hostname: "images.unsplash.com" },
       // CDN configuré par l'environnement (STORAGE_CDN_URL)
