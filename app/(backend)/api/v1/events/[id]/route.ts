@@ -2,6 +2,7 @@ import { ok, notFound, forbidden, unauthorized, badRequest, serverError } from "
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { deleteStoredUrl } from "@/lib/storage";
 import { sendEventRejectionEmail, sendEventApprovalEmail } from "@/lib/email";
 import { notifyFollowersNewEvent } from "@/services/notifications";
 import type { NextRequest } from "next/server";
@@ -257,6 +258,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams): Promis
       where: { id },
     });
 
+    await deleteStoredUrl(event.coverUrl);
     return ok({ message: "Event deleted successfully" });
   } catch (err) {
     console.error("[DELETE /api/v1/events/[id]]", err);

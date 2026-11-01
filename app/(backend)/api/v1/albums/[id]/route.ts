@@ -1,7 +1,7 @@
 import { getAlbumBySlug, updateAlbum, deleteAlbum } from "@/services/albums";
 import { updateAlbumSchema } from "@/lib/validations/album";
 import { ok, badRequest, unauthorized, forbidden, notFound, noContent, serverError } from "@/lib/response";
-import { getSession } from "@/lib/auth";
+import { canViewContent, getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/v1/albums/[id]  — [id] is the slug
@@ -13,6 +13,7 @@ export async function GET(
   try {
     const album = await getAlbumBySlug(slug);
     if (!album) return notFound("Album not found");
+    if (!canViewContent(album.status, album.artist.userId, await getSession())) return notFound("Album not found");
     return ok(album);
   } catch (err) {
     console.error("[GET /api/v1/albums/[id]]", err);

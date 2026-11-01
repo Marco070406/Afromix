@@ -229,7 +229,7 @@ export function PlayerBar() {
                 "ml-1 p-1.5 rounded-full hover:bg-white/[0.06] flex-shrink-0 transition-colors",
                 liked ? "text-pink-500" : "text-zinc-500 hover:text-pink-400"
               )}
-              aria-label={liked ? "Retirer le like" : tr("J'aime", "Like")}
+              aria-label={liked ? tr("Retirer le like", "Unlike") : tr("J'aime", "Like")}
             >
               <Heart className={cn("h-4 w-4", liked && "fill-current")} />
             </button>
@@ -262,7 +262,7 @@ export function PlayerBar() {
                 onClick={togglePlay}
                 disabled={isLoading}
                 className="h-11 w-11 rounded-full bg-white hover:bg-zinc-100 flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-all shadow-lg disabled:opacity-50"
-                aria-label={isPlaying ? "Pause" : "Lecture"}
+                aria-label={isPlaying ? tr("Pause", "Pause") : tr("Lecture", "Play")}
               >
                 {isLoading ? (
                   <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -425,7 +425,7 @@ export function PlayerBar() {
               onClick={togglePlay}
               disabled={isLoading}
               className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-black disabled:opacity-50"
-              aria-label={isPlaying ? "Pause" : "Lecture"}
+              aria-label={isPlaying ? tr("Pause", "Pause") : tr("Lecture", "Play")}
             >
               {isLoading ? (
                 <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">

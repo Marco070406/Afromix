@@ -1,11 +1,12 @@
-import { cdnUrl, isStorageConfigured } from "@/lib/storage";
+import { cdnUrl, deleteStoredUrl, isStorageConfigured, objectExists } from "@/lib/storage";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, badRequest, unauthorized, forbidden, notFound, serverError } from "@/lib/response";
 import { z } from "zod";
+import { storageKey } from "@/lib/validations/upload";
 
 const confirmSchema = z.object({
-  key: z.string().min(1).regex(/^covers\//, "La clé doit être dans le dossier covers/"),
+  key: storageKey("covers"),
 });
 
 // POST /api/v1/tracks/[id]/cover/confirm
@@ -26,7 +27,7 @@ export async function POST(
 
   const track = await prisma.track.findFirst({
     where: { OR: [{ id }, { slug: id }] },
-    select: { id: true, artistId: true },
+    select: { id: true, artistId: true, coverUrl: true },
   });
 
   if (!track) return notFound("Track not found");
@@ -43,11 +44,13 @@ export async function POST(
   }
 
   try {
+    if (!(await objectExists(parsed.data.key))) return badRequest("Fichier introuvable : relancez l'envoi.");
     const coverUrl = cdnUrl(parsed.data.key);
     await prisma.track.update({
       where: { id: track.id },
       data: { coverUrl },
     });
+    if (track.coverUrl !== coverUrl) await deleteStoredUrl(track.coverUrl);
     return ok({ coverUrl });
   } catch (err) {
     console.error("[POST /api/v1/tracks/[id]/cover/confirm]", err);

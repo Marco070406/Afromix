@@ -150,7 +150,7 @@ async function sendMail(
         subject,
         html,
       });
-      console.log(`[Email] ${logContext} sent successfully via SMTP to ${to}`);
+      console.log(`[Email] ${logContext} envoyé via SMTP`);
       return { ok: true };
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -173,7 +173,7 @@ async function sendMail(
         console.error(`[Email] Resend error (${logContext}):`, error);
         return { ok: false, error: error.message };
       }
-      console.log(`[Email] ${logContext} sent successfully via Resend to ${to}`);
+      console.log(`[Email] ${logContext} envoyé via Resend`);
       return { ok: true };
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -185,6 +185,19 @@ async function sendMail(
   return { ok: false, error: "Aucun service d'email configuré" };
 }
 
+/**
+ * Sans service d'e-mail : en développement le contenu s'affiche dans la console ;
+ * en production c'est un échec, et rien de sensible n'est écrit dans les journaux.
+ */
+function devFallback(message: string): SendResult {
+  if (process.env.NODE_ENV === "production") {
+    console.error("[Email] Aucun service d'e-mail configuré");
+    return { ok: false, error: "Aucun service d'email configuré" };
+  }
+  console.log(`\n[DEV] ${message}\n`);
+  return { ok: true };
+}
+
 export async function sendVerificationEmail(
   to: string,
   displayName: string,
@@ -192,8 +205,7 @@ export async function sendVerificationEmail(
 ): Promise<SendResult> {
   if (!process.env.SMTP_USER && !process.env.RESEND_API_KEY) {
     // Développement sans SMTP : le code s'affiche dans la console du serveur
-    if (process.env.NODE_ENV !== "production") console.log(`\n[DEV] Code de vérification pour ${to} : ${code}\n`);
-    return { ok: true };
+    return devFallback(`Code de vérification pour ${to} : ${code}`);
   }
 
   return sendMail(
@@ -212,8 +224,7 @@ export async function sendPasswordResetEmail(
   const resetUrl = `${APP_URL}/reset-password?token=${token}`;
 
   if (!process.env.SMTP_USER && !process.env.RESEND_API_KEY) {
-    console.log(`\n[DEV] Password reset URL for ${to}:\n${resetUrl}\n`);
-    return { ok: true };
+    return devFallback(`Lien de réinitialisation pour ${to} : ${resetUrl}`);
   }
 
   return sendMail(
@@ -303,8 +314,7 @@ export async function sendEventRejectionEmail(
   reason: string
 ): Promise<SendResult> {
   if (!process.env.SMTP_USER && !process.env.RESEND_API_KEY) {
-    console.log(`\n[DEV] Event Rejection Email for ${to}:\nEvent: ${eventTitle}\nReason: ${reason}\n`);
-    return { ok: true };
+    return devFallback(`Événement refusé pour ${to} : ${eventTitle} (${reason})`);
   }
 
   return sendMail(
@@ -321,8 +331,7 @@ export async function sendEventApprovalEmail(
   eventTitle: string
 ): Promise<SendResult> {
   if (!process.env.SMTP_USER && !process.env.RESEND_API_KEY) {
-    console.log(`\n[DEV] Event Approval Email for ${to}:\nEvent: ${eventTitle}\n`);
-    return { ok: true };
+    return devFallback(`Événement approuvé pour ${to} : ${eventTitle}`);
   }
 
   return sendMail(
@@ -424,8 +433,7 @@ export async function sendBookingInquiryEmail(
   }
 ): Promise<SendResult> {
   if (!process.env.SMTP_USER && !process.env.RESEND_API_KEY) {
-    console.log(`\n[DEV] Booking Inquiry Email for ${to} (${artistName}):\nFrom: ${inquiry.senderName} <${inquiry.senderEmail}>\nType: ${inquiry.eventType}\nMessage: ${inquiry.message}\n`);
-    return { ok: true };
+    return devFallback(`Demande de booking pour ${to} (${artistName}) de ${inquiry.senderName} : ${inquiry.message}`);
   }
 
   return sendMail(

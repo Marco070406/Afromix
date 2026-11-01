@@ -4,6 +4,8 @@ import { artistSelect } from "@/services/mixes";
 import { notifyFollowersNewTrack } from "@/services/notifications";
 import type { CreateTrackInput, UpdateTrackInput, TrackQuery } from "@/lib/validations/track";
 import type { TrackDetail, TrackSummary, PaginatedResponse } from "@/types/api";
+import { activeArtist } from "@/lib/selectors";
+import { deleteObject, deleteStoredUrl } from "@/lib/storage";
 
 const CACHE_TTL = 60;
 const CACHE_TTL_DETAIL = 300;
@@ -22,6 +24,7 @@ export async function listTracks(
 
   const where = {
     status: status ?? ("PUBLISHED" as const),
+    ...((!status || status === "PUBLISHED") && { artist: activeArtist }),
     ...(genre && { genre }),
     ...(trackType && { trackType }),
     ...(artistId && { artistId }),
@@ -71,7 +74,7 @@ export async function getTrackBySlug(slug: string): Promise<TrackDetail | null> 
   if (cached) return cached;
 
   const track = await prisma.track.findUnique({
-    where: { slug },
+    where: { slug, artist: activeArtist },
     include: {
       artist: { select: artistSelect },
       album: {
@@ -124,7 +127,7 @@ export async function createTrack(
   if (track.status === "PUBLISHED") {
     const artistProfile = await prisma.artistProfile.findUnique({
       where: { id: artistId },
-      select: { userId: true, stageName: true, avatarUrl: true },
+      select: { userId: true, slug: true, stageName: true, avatarUrl: true },
     });
     if (artistProfile) {
       notifyFollowersNewTrack(
@@ -132,7 +135,7 @@ export async function createTrack(
         artistProfile.stageName,
         artistProfile.avatarUrl,
         track.title,
-        track.slug
+        artistProfile.slug
       ).catch(() => {});
     }
   }
@@ -187,7 +190,7 @@ export async function updateTrack(
   if (input.status === "PUBLISHED" && !existing.publishedAt) {
     const artistProfile = await prisma.artistProfile.findUnique({
       where: { id: artistId },
-      select: { userId: true, stageName: true, avatarUrl: true },
+      select: { userId: true, slug: true, stageName: true, avatarUrl: true },
     });
     if (artistProfile) {
       notifyFollowersNewTrack(
@@ -195,7 +198,7 @@ export async function updateTrack(
         artistProfile.stageName,
         artistProfile.avatarUrl,
         track.title,
-        track.slug
+        artistProfile.slug
       ).catch(() => {});
     }
   }
@@ -217,6 +220,8 @@ export async function deleteTrack(
   }
   await prisma.track.delete({ where: { id } });
   await cacheDel(`tracks:detail:${existing.slug}`);
+  if (existing.audioKey) await deleteObject(existing.audioKey);
+  await deleteStoredUrl(existing.coverUrl);
 }
 
 // ─── Record play ──────────────────────────────────────────────────────────────
@@ -268,6 +273,7 @@ function serializeTrackSummary(row: any): TrackSummary {
 function serializeTrackDetail(row: any): TrackDetail {
   return {
     ...serializeTrackSummary(row),
+    status: row.status,
     description: row.description ?? null,
     tags: row.tags ?? [],
     lyrics: row.lyrics ?? null,

@@ -3,6 +3,8 @@ import { cacheGet, cacheSet, cacheDel } from "@/lib/redis";
 import { artistSelect } from "@/services/mixes";
 import type { CreateAlbumInput, UpdateAlbumInput, AlbumQuery } from "@/lib/validations/album";
 import type { AlbumDetail, AlbumSummary, PaginatedResponse } from "@/types/api";
+import { activeArtist } from "@/lib/selectors";
+import { deleteStoredUrl } from "@/lib/storage";
 
 const CACHE_TTL = 60;
 const CACHE_TTL_DETAIL = 300;
@@ -21,6 +23,7 @@ export async function listAlbums(
 
   const where = {
     status: status ?? ("PUBLISHED" as const),
+    ...((!status || status === "PUBLISHED") && { artist: activeArtist }),
     ...(genre && { genre }),
     ...(artistId && { artistId }),
     ...(q && {
@@ -63,7 +66,7 @@ export async function getAlbumBySlug(slug: string): Promise<AlbumDetail | null> 
   if (cached) return cached;
 
   const album = await prisma.album.findUnique({
-    where: { slug },
+    where: { slug, artist: activeArtist },
     include: {
       artist: { select: artistSelect },
       tracks: {
@@ -183,6 +186,7 @@ export async function deleteAlbum(
   // Tracks restent mais leur albumId devient null (onDelete: SetNull)
   await prisma.album.delete({ where: { id } });
   await cacheDel(`albums:detail:${existing.slug}`);
+  await deleteStoredUrl(existing.coverUrl);
 }
 
 // ─── Serialisers ─────────────────────────────────────────────────────────────
@@ -207,6 +211,7 @@ function serializeAlbumSummary(row: any): AlbumSummary {
 function serializeAlbumDetail(row: any): AlbumDetail {
   return {
     ...serializeAlbumSummary(row),
+    status: row.status,
     description: row.description ?? null,
     tags: row.tags ?? [],
     tracks: (row.tracks ?? []).map((t: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any

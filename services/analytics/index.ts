@@ -84,7 +84,7 @@ export async function getOverview(
     }),
     prisma.artistProfile.findUnique({
       where: { id: artistId },
-      select: { followerCount: true },
+      select: { followerCount: true, userId: true },
     }),
     prisma.mix.count({ where: { artistId, status: "PUBLISHED" } }),
     prisma.track.count({ where: { artistId, status: "PUBLISHED" } }),
@@ -117,6 +117,15 @@ export async function getOverview(
       ? Math.round(((currentPlays - prevPlays) / prevPlays) * 100)
       : null;
 
+  const [newFollowers, prevFollowers] = profile
+    ? await Promise.all([
+        prisma.follow.count({ where: { followingId: profile.userId, createdAt: { gte: since } } }),
+        prisma.follow.count({ where: { followingId: profile.userId, createdAt: { gte: prevSince, lt: since } } }),
+      ])
+    : [0, 0];
+  const followersGrowth =
+    prevFollowers > 0 ? Math.round(((newFollowers - prevFollowers) / prevFollowers) * 100) : null;
+
   const result: AnalyticsOverview = {
     totalPlays,
     totalLikes,
@@ -125,7 +134,7 @@ export async function getOverview(
     totalMixes,
     totalTracks,
     playsGrowth,
-    followersGrowth: null, // nécessite historique followers — TODO phase 12
+    followersGrowth,
   };
 
   await cacheSet(cacheKey, result, CACHE_TTL);

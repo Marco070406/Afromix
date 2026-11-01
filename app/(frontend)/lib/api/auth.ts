@@ -38,7 +38,7 @@ export interface RegisterInput {
 }
 
 export const authApi = {
-  me: () => api.get<MeResponse>("/auth/me"),
+  me: () => api.get<MeResponse | null>("/auth/me"),
 
   updateProfile: (input: UpdateProfileInput) =>
     api.patch<{ profile: NonNullable<MeResponse["profile"]> }>("/auth/me", input),

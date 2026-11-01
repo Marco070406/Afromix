@@ -356,7 +356,7 @@ export function DjProfileEditor() {
                 )}
               </div>
               <p className="text-xs text-zinc-400">
-                afromix.io/artists/<span className="text-purple-400 font-semibold">{artist.slug}</span>
+                {(process.env.NEXT_PUBLIC_APP_URL ?? "https://afromix.vercel.app").replace(/^https?:\/\//, "")}/artists/<span className="text-purple-400 font-semibold">{artist.slug}</span>
               </p>
               {availableForBooking ? (
                 <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium">

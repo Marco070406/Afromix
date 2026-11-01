@@ -51,6 +51,7 @@ export const mixesApi = {
   delete: (id: string) => api.delete<void>(`/mixes/${id}`),
 
   recordPlay: (id: string) => api.post<{ played: boolean }>(`/mixes/${id}/play`),
+  recordTrackPlay: (id: string) => api.post<{ played: boolean }>(`/tracks/${id}/play`),
 
   // Audio upload
   presignAudio: (id: string, contentType: string) =>

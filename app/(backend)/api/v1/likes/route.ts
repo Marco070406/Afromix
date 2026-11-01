@@ -46,12 +46,12 @@ export async function POST(request: Request): Promise<Response> {
     } else {
       const track = await prisma.track.findUnique({
         where: { id: targetId },
-        select: { id: true, title: true, slug: true, artist: { select: { userId: true } } },
+        select: { id: true, title: true, artist: { select: { userId: true, slug: true } } },
       });
       if (!track) return notFound("Track not found");
       contentOwnerUserId = track.artist.userId;
       contentTitle = track.title;
-      contentUrl = `/tracks/${track.slug}`;
+      contentUrl = `/artists/${track.artist.slug}`;
     }
 
     const existingLike = await prisma.like.findFirst({

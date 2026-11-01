@@ -86,6 +86,10 @@ export async function POST(request: NextRequest): Promise<Response> {
   const session = await getSession();
   if (!session) return unauthorized();
 
+  if (session.role !== "ARTIST" && session.role !== "ADMIN") {
+    return forbidden("Réservé aux DJs et aux administrateurs");
+  }
+
   const limited = await limitOrNull("event-create", session.sub, 10, 3600);
   if (limited) return limited;
 

@@ -195,9 +195,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!track || !isPlaying) return;
     if (currentTime > 30 && playCountedRef.current !== track.id) {
       playCountedRef.current = track.id;
-      if (track.type === "mix") {
-        mixesApi.recordPlay(track.id).catch(() => {});
-      }
+      (track.type === "mix" ? mixesApi.recordPlay(track.id) : mixesApi.recordTrackPlay(track.id)).catch(() => {});
     }
   }, [currentTime, track, isPlaying]);
 

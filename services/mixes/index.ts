@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { cacheGet, cacheSet, cacheDel } from "@/lib/redis";
-import { artistSelect } from "@/lib/selectors";
+import { activeArtist, artistSelect } from "@/lib/selectors";
 import { notifyFollowersNewMix } from "@/services/notifications";
 import type { CreateMixInput, UpdateMixInput, MixQuery } from "@/lib/validations/mix";
 import type { MixDetail, MixSummary, PaginatedResponse } from "@/types/api";
+import { deleteObject, deleteStoredUrl } from "@/lib/storage";
 
 // ─── Selectors ────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ export async function listMixes(
   const isPublicListing = !status || status === "PUBLISHED";
   const where = {
     status: status ?? ("PUBLISHED" as const),
+    ...((!status || status === "PUBLISHED") && { artist: activeArtist }),
     // For public listings, only show mixes that actually have audio
     ...(isPublicListing && { audioUrl: { not: null } }),
     ...(genre && { genre }),
@@ -90,7 +92,7 @@ export async function getMixBySlug(slug: string, userId?: string): Promise<MixDe
 
   if (!cached) {
     mix = await prisma.mix.findUnique({
-      where: { slug },
+      where: { slug, artist: activeArtist },
       include: {
         artist: { select: artistSelect },
         tracklist: {
@@ -261,6 +263,8 @@ export async function deleteMix(
   }
   await prisma.mix.delete({ where: { id } });
   await cacheDel(`mixes:detail:${existing.slug}`);
+  if (existing.audioKey) await deleteObject(existing.audioKey);
+  await deleteStoredUrl(existing.coverUrl);
 }
 
 // ─── Play (stream event) ──────────────────────────────────────────────────────
@@ -365,6 +369,7 @@ function serializeMixSummary(row: any): MixSummary {
 function serializeMixDetail(row: any): MixDetail {
   return {
     ...serializeMixSummary(row),
+    status: row.status,
     description: row.description ?? null,
     tags: row.tags ?? [],
     commentCount: row.commentCount ?? 0,

@@ -187,7 +187,7 @@ export default function ArtistPage() {
               </span>
               <span className="flex items-center gap-1.5">
                 <Music2 className="h-4 w-4 text-pink-400" />
-                {artist.mixCount} mixes
+                {artist.mixCount} {artist.mixCount > 1 ? "mixes" : "mix"}
               </span>
               {artist.country && (
                 <span className="flex items-center gap-1.5">

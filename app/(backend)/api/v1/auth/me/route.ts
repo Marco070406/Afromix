@@ -1,8 +1,10 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, unauthorized, badRequest, serverError } from "@/lib/response";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { httpUrl, imageUrl } from "@/lib/validations/common";
+import { deleteStoredUrl } from "@/lib/storage";
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2, "Le nom doit comporter au moins 2 caractères").max(60).optional(),
@@ -15,7 +17,12 @@ const updateProfileSchema = z.object({
 
 export async function GET(): Promise<Response> {
   const session = await getSession();
-  if (!session) return unauthorized();
+  if (!session) {
+    // Visiteur sans session : réponse normale, sans erreur ni tentative de renouvellement.
+    // Avec un jeton de renouvellement, le 401 déclenche le refresh côté client.
+    const cookieStore = await cookies();
+    return cookieStore.has("afromix_refresh") ? unauthorized() : ok(null);
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: session.sub },
@@ -23,6 +30,7 @@ export async function GET(): Promise<Response> {
       id: true,
       email: true,
       emailVerified: true,
+      deletedAt: true,
       role: true,
       profile: {
         select: {
@@ -40,7 +48,7 @@ export async function GET(): Promise<Response> {
     },
   });
 
-  if (!user) return unauthorized();
+  if (!user || user.deletedAt) return unauthorized();
 
   return ok({
     id: user.id,
@@ -65,6 +73,11 @@ export async function PATCH(req: Request): Promise<Response> {
   const { displayName, bio, avatarUrl, country, city, website } = parsed.data;
 
   try {
+    const previous =
+      avatarUrl !== undefined
+        ? await prisma.profile.findUnique({ where: { userId: session.sub }, select: { avatarUrl: true } })
+        : null;
+
     const profile = await prisma.profile.upsert({
       where: { userId: session.sub },
       create: {
@@ -86,6 +99,7 @@ export async function PATCH(req: Request): Promise<Response> {
       },
     });
 
+    if (previous?.avatarUrl !== profile.avatarUrl) await deleteStoredUrl(previous?.avatarUrl);
     return ok({ profile });
   } catch (error) {
     console.error("[PATCH /api/v1/auth/me]", error);

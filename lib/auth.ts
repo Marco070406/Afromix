@@ -113,6 +113,16 @@ export async function requireRole(role: string): Promise<JwtPayload> {
   return session;
 }
 
+/** Un contenu non publié n'est visible que de son auteur et des admins. */
+export function canViewContent(
+  status: string,
+  ownerUserId: string | null | undefined,
+  session: Pick<JwtPayload, "sub" | "role"> | null
+): boolean {
+  if (status === "PUBLISHED") return true;
+  return !!session && (session.sub === ownerUserId || session.role === "ADMIN");
+}
+
 // ─── Auth error ───────────────────────────────────────────────────────────────
 
 export class AuthError extends Error {

@@ -4,7 +4,7 @@ import { ok, serverError } from "@/lib/response";
 import { z } from "zod";
 import { MixGenreEnum } from "@/lib/validations/mix";
 import type { NextRequest } from "next/server";
-import { artistSelect } from "@/lib/selectors";
+import { artistSelect, publicContent } from "@/lib/selectors";
 
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       (type === "all" || type === "mixes")
         ? prisma.mix.findMany({
             where: {
-              status: "PUBLISHED",
+              ...publicContent,
               publishedAt: { gte: since },
               ...(genre && { genre }),
             },
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       (type === "all" || type === "tracks")
         ? prisma.track.findMany({
             where: {
-              status: "PUBLISHED",
+              ...publicContent,
               publishedAt: { gte: since },
               ...(genre && { genre }),
             },
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       (type === "all" || type === "albums")
         ? prisma.album.findMany({
             where: {
-              status: "PUBLISHED",
+              ...publicContent,
               publishedAt: { gte: since },
               ...(genre && { genre }),
             },

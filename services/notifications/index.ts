@@ -144,9 +144,9 @@ export async function notifyFollowersNewTrack(
   stageName: string,
   avatarUrl: string | null,
   trackTitle: string,
-  trackSlug: string
+  artistSlug: string
 ): Promise<void> {
-  const linkUrl = `/tracks/${trackSlug}`;
+  const linkUrl = `/artists/${artistSlug}`;
   const BATCH = 100;
   let cursor: string | undefined;
 

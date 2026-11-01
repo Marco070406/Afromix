@@ -3,6 +3,12 @@
  * Centralise les champs retournés pour garantir la cohérence des types API.
  */
 
+/** Artiste dont le compte n'est pas suspendu : à inclure dans tout ce qui est public. */
+export const activeArtist = { user: { deletedAt: null } } as const;
+
+/** Contenu visible du public : publié, et son artiste n'est pas suspendu. */
+export const publicContent = { status: "PUBLISHED", artist: activeArtist } as const;
+
 /** Champs de base d'un artiste — utilisé dans les listes, mixes, tracks, etc. */
 export const artistSelect = {
   id: true,

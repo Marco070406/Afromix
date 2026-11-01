@@ -1,7 +1,7 @@
 import { getTrackBySlug, updateTrack, deleteTrack } from "@/services/tracks";
 import { updateTrackSchema } from "@/lib/validations/track";
 import { ok, badRequest, unauthorized, forbidden, notFound, noContent, serverError } from "@/lib/response";
-import { getSession } from "@/lib/auth";
+import { canViewContent, getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/v1/tracks/[id]  — [id] is the slug
@@ -13,6 +13,7 @@ export async function GET(
   try {
     const track = await getTrackBySlug(slug);
     if (!track) return notFound("Track not found");
+    if (!canViewContent(track.status, track.artist.userId, await getSession())) return notFound("Track not found");
     return ok(track);
   } catch (err) {
     console.error("[GET /api/v1/tracks/[id]]", err);

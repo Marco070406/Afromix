@@ -1,11 +1,12 @@
-import { cdnUrl, isStorageConfigured } from "@/lib/storage";
+import { cdnUrl, deleteStoredUrl, isStorageConfigured, objectExists } from "@/lib/storage";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, badRequest, unauthorized, forbidden, notFound, serverError } from "@/lib/response";
 import { z } from "zod";
+import { storageKey } from "@/lib/validations/upload";
 
 const confirmSchema = z.object({
-  key: z.string().min(1).regex(/^covers\//, "La clé doit être dans le dossier covers/"),
+  key: storageKey("covers"),
 });
 
 export async function POST(
@@ -42,11 +43,13 @@ export async function POST(
   }
 
   try {
+    if (!(await objectExists(parsed.data.key))) return badRequest("Fichier introuvable : relancez l'envoi.");
     const coverUrl = cdnUrl(parsed.data.key);
     await prisma.mix.update({
       where: { id: mix.id },
       data: { coverUrl },
     });
+    if (mix.coverUrl !== coverUrl) await deleteStoredUrl(mix.coverUrl);
     return ok({ coverUrl });
   } catch (err) {
     console.error("[POST /api/v1/mixes/[id]/cover/confirm]", err);

@@ -21,6 +21,8 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 60 * 60 * 24, // 24h
   },
   devIndicators: false,
+  // Vraie page 404 pour les adresses inconnues (layout racine dans un groupe de routes)
+  experimental: { globalNotFound: true },
   // Le service worker doit toujours être relu à jour, sinon une nouvelle version
   // mettrait jusqu'à 24 h à atteindre les applications installées
   async headers() {

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { cacheGet, cacheSet, cacheDel } from "@/lib/redis";
-import { artistSelect, artistDetailSelect } from "@/lib/selectors";
+import { activeArtist, artistDetailSelect, artistSelect } from "@/lib/selectors";
 import type {
   ArtistDetail,
   ArtistSummary,
@@ -27,6 +27,7 @@ export async function listArtists(
   if (cached) return cached;
 
   const where = {
+    ...activeArtist,
     ...(q && {
       stageName: { contains: q, mode: "insensitive" as const },
     }),
@@ -65,7 +66,7 @@ export async function getArtistBySlug(
   if (cached) return cached;
 
   const row = await prisma.artistProfile.findUnique({
-    where: { slug },
+    where: { slug, ...activeArtist },
     select: {
       ...artistDetailSelect,
       _count: { select: { mixes: true, tracks: true } },
@@ -277,7 +278,7 @@ export async function getArtistMixes(
 ): Promise<PaginatedResponse<MixSummary>> {
   // Résoud l'artistId depuis le slug
   const artist = await prisma.artistProfile.findUnique({
-    where: { slug },
+    where: { slug, ...activeArtist },
     select: { id: true, userId: true, slug: true, stageName: true, avatarUrl: true, country: true, verified: true, followerCount: true, genres: true },
   });
   if (!artist) throw Object.assign(new Error("Artist not found"), { status: 404 });

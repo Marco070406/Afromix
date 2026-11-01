@@ -758,7 +758,7 @@ export default function AnalyticsPage() {
 
                           <div className="min-w-0 flex-1">
                             <Link
-                              href={item.type === "mix" ? `/mixes/${item.slug}` : `/tracks/${item.slug}`}
+                              href={item.type === "mix" ? `/mixes/${item.slug}` : "/dashboard"}
                               className="text-sm font-bold text-white hover:text-purple-300 transition-colors truncate block"
                             >
                               {item.title}

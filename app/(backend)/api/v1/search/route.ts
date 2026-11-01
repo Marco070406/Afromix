@@ -4,7 +4,7 @@ import { ok, badRequest, serverError } from "@/lib/response";
 import { z } from "zod";
 import { MixGenreEnum } from "@/lib/validations/mix";
 import type { NextRequest } from "next/server";
-import { artistSelect } from "@/lib/selectors";
+import { activeArtist, artistSelect, publicContent } from "@/lib/selectors";
 
 const searchSchema = z.object({
   q: z.string().min(1).max(100),
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       (type === "all" || type === "mixes")
         ? prisma.mix.findMany({
             where: {
-              status: "PUBLISHED",
+              ...publicContent,
               ...(genre && { genre }),
               ...(mixType && { mixType }),
               ...(artistFilter && { artist: artistFilter }),
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       (type === "all" || type === "tracks")
         ? prisma.track.findMany({
             where: {
-              status: "PUBLISHED",
+              ...publicContent,
               ...(genre && { genre }),
               ...(trackType && { trackType }),
               ...(artistFilter && { artist: artistFilter }),
@@ -104,6 +104,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       (type === "all" || type === "artists")
         ? prisma.artistProfile.findMany({
             where: {
+              ...activeArtist,
               ...(country && { country }),
               ...(city && { city: { contains: city, mode: "insensitive" as const } }),
               ...(genre && { genres: { has: genre } }),
@@ -122,7 +123,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       (type === "all" || type === "albums")
         ? prisma.album.findMany({
             where: {
-              status: "PUBLISHED",
+              ...publicContent,
               ...(genre && { genre }),
               title: textSearch,
             },

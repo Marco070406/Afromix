@@ -3,6 +3,7 @@ import { addTracklistItemSchema } from "@/lib/validations/mix";
 import { ok, created, badRequest, unauthorized, forbidden, notFound, serverError } from "@/lib/response";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { publicContent } from "@/lib/selectors";
 
 // GET /api/v1/mixes/[id]/tracklist — lister la tracklist du mix
 export async function GET(
@@ -11,7 +12,7 @@ export async function GET(
 ): Promise<Response> {
   const { id } = await params;
   const mix = await prisma.mix.findFirst({
-    where: { OR: [{ id }, { slug: id }] },
+    where: { OR: [{ id }, { slug: id }], ...publicContent },
     select: {
       id: true,
       tracklist: {

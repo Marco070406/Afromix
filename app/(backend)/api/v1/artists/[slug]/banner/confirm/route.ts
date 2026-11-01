@@ -3,15 +3,16 @@
  * Persiste bannerUrl sur le profil après upload direct sur R2/S3.
  */
 
-import { cdnUrl } from "@/lib/storage";
+import { cdnUrl, deleteStoredUrl, objectExists } from "@/lib/storage";
 import { updateArtistProfile } from "@/services/users";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, badRequest, unauthorized, forbidden, notFound, serverError } from "@/lib/response";
 import { z } from "zod";
+import { storageKey } from "@/lib/validations/upload";
 
 const confirmSchema = z.object({
-  key: z.string().min(1).regex(/^banners\//, "Key must be in banners/ folder"),
+  key: storageKey("banners"),
 });
 
 export async function POST(
@@ -46,8 +47,11 @@ export async function POST(
   }
 
   try {
+    if (!(await objectExists(parsed.data.key))) return badRequest("Fichier introuvable : relancez l'envoi.");
+    const previous = await prisma.artistProfile.findUnique({ where: { id: target.id }, select: { bannerUrl: true } });
     const bannerUrl = cdnUrl(parsed.data.key);
     const artist = await updateArtistProfile(target.id, { bannerUrl });
+    await deleteStoredUrl(previous?.bannerUrl);
     return ok({ bannerUrl: artist.bannerUrl });
   } catch (err) {
     console.error("[POST /api/v1/artists/[slug]/banner/confirm]", err);

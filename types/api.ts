@@ -103,6 +103,7 @@ export interface MixSummary {
 }
 
 export interface MixDetail extends MixSummary {
+  status: string;
   description: string | null;
   tags: string[];
   commentCount: number;
@@ -135,6 +136,7 @@ export interface TrackSummary {
 }
 
 export interface TrackDetail extends TrackSummary {
+  status: string;
   description: string | null;
   tags: string[];
   lyrics: string | null;
@@ -158,6 +160,7 @@ export interface AlbumSummary {
 }
 
 export interface AlbumDetail extends AlbumSummary {
+  status: string;
   description: string | null;
   tags: string[];
   tracks: TrackSummary[];

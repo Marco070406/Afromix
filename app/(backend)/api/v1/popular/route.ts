@@ -4,7 +4,7 @@ import { ok, serverError } from "@/lib/response";
 import { z } from "zod";
 import { MixGenreEnum } from "@/lib/validations/mix";
 import type { NextRequest } from "next/server";
-import { artistSelect } from "@/lib/selectors";
+import { activeArtist, artistSelect, publicContent } from "@/lib/selectors";
 
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     const [mixes, tracks, artists] = await Promise.all([
       (type === "all" || type === "mixes")
         ? prisma.mix.findMany({
-            where: { status: "PUBLISHED", ...(genre && { genre }) },
+            where: { ...publicContent, ...(genre && { genre }) },
             take: limit,
             orderBy: { [sortBy === "followerCount" ? "playCount" : sortBy]: "desc" },
             select: {
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
       (type === "all" || type === "tracks")
         ? prisma.track.findMany({
-            where: { status: "PUBLISHED", ...(genre && { genre }) },
+            where: { ...publicContent, ...(genre && { genre }) },
             take: limit,
             orderBy: { [sortBy === "followerCount" ? "playCount" : sortBy]: "desc" },
             select: {
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
       (type === "all" || type === "artists")
         ? prisma.artistProfile.findMany({
-            where: { ...(genre && { genres: { has: genre } }) },
+            where: { ...activeArtist, ...(genre && { genres: { has: genre } }) },
             take: limit,
             orderBy: { followerCount: "desc" },
             select: artistSelect,

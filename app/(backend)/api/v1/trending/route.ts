@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { MixGenreEnum } from "@/lib/validations/mix";
 import type { NextRequest } from "next/server";
-import { artistSelect } from "@/lib/selectors";
+import { activeArtist, artistSelect, publicContent } from "@/lib/selectors";
 
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
             // Fallback : si pas encore de stream events, tri par playCount
             const where = {
-              status: "PUBLISHED" as const,
+              ...publicContent,
               ...(genre && { genre }),
               ...(topIds.length > 0 && { id: { in: topIds } }),
             };
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest): Promise<Response> {
               );
 
             const where = {
-              status: "PUBLISHED" as const,
+              ...publicContent,
               ...(genre && { genre }),
               ...(topIds.length > 0 && { id: { in: topIds } }),
             };
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest): Promise<Response> {
                 _sum: { playCount: true },
               }),
               prisma.artistProfile.findMany({
-                where: { ...(genre && { genres: { has: genre } }) },
+                where: { ...activeArtist, ...(genre && { genres: { has: genre } }) },
                 select: { id: true, followerCount: true },
               }),
             ]);

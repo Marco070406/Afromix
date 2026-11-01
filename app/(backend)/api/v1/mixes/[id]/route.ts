@@ -3,6 +3,7 @@ import { updateMixSchema } from "@/lib/validations/mix";
 import { ok, badRequest, unauthorized, forbidden, notFound, noContent, serverError } from "@/lib/response";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canViewContent } from "@/lib/auth";
 
 // GET /api/v1/mixes/[id]  — [id] is the mix slug
 export async function GET(
@@ -15,6 +16,7 @@ export async function GET(
     const session = await getSession();
     const mix = await getMixBySlug(slug, session?.sub);
     if (!mix) return notFound("Mix not found");
+    if (!canViewContent(mix.status, mix.artist.userId, session)) return notFound("Mix not found");
     return ok(mix);
   } catch (err) {
     console.error("[GET /api/v1/mixes/[id]]", err);

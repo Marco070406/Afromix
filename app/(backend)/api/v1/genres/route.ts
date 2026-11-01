@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { cacheGet, cacheSet } from "@/lib/redis";
 import { ok, serverError } from "@/lib/response";
+import { publicContent } from "@/lib/selectors";
 
 // Genres disponibles dans le schema
 const GENRES = [
@@ -37,12 +38,12 @@ export async function GET(): Promise<Response> {
     const [mixCounts, trackCounts] = await Promise.all([
       prisma.mix.groupBy({
         by: ["genre"],
-        where: { status: "PUBLISHED" },
+        where: publicContent,
         _count: { genre: true },
       }),
       prisma.track.groupBy({
         by: ["genre"],
-        where: { status: "PUBLISHED" },
+        where: publicContent,
         _count: { genre: true },
       }),
     ]);

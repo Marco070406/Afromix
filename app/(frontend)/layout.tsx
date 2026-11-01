@@ -13,6 +13,8 @@ const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  // Base des adresses d'images et d'aperçus de partage
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://afromix.vercel.app"),
   title: { default: "AfroMix — Streaming musical africain", template: "%s · AfroMix" },
   description: "La plateforme des DJs et artistes africains. Découvrez les meilleurs mixes Afrobeats, Amapiano, Afro House et plus encore.",
   keywords: ["afrobeats", "amapiano", "afro house", "DJ", "streaming", "africain", "musique"],

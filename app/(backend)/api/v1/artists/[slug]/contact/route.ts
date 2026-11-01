@@ -4,6 +4,7 @@ import { createBookingInquirySchema } from "@/lib/validations/user";
 import { sendBookingInquiryEmail } from "@/lib/email";
 import { ok, badRequest, notFound, serverError } from "@/lib/response";
 import { rateLimit, clientIp } from "@/lib/redis";
+import { activeArtist } from "@/lib/selectors";
 
 // POST /api/v1/artists/[slug]/contact
 // Permet à un utilisateur ou organisateur d'envoyer une demande de booking / contact au DJ
@@ -19,7 +20,7 @@ export async function POST(
 
   try {
     const artist = await prisma.artistProfile.findUnique({
-      where: { slug },
+      where: { slug, ...activeArtist },
       select: {
         id: true,
         userId: true,

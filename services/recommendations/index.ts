@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { cacheGet, cacheSet } from "@/lib/redis";
 import type { MixSummary, TrackSummary, ArtistSummary } from "@/types/api";
-import { artistSelect } from "@/lib/selectors";
+import { activeArtist, artistSelect, publicContent } from "@/lib/selectors";
 
 const CACHE_TTL = 10 * 60; // 10 minutes
 
@@ -49,7 +49,7 @@ export async function getTrending(limit = 20): Promise<MixSummary[]> {
     );
 
   const where = {
-    status: "PUBLISHED" as const,
+    ...publicContent,
     ...(topMixIds.length > 0 && { id: { in: topMixIds } }),
   };
 
@@ -115,7 +115,7 @@ export async function getRecommendations(
     // Mixes dans les genres aimés, excluant ceux déjà likés
     prisma.mix.findMany({
       where: {
-        status: "PUBLISHED",
+        ...publicContent,
         ...(likedGenres.length > 0 && { genre: { in: likedGenres as never[] } }),
         ...(likedMixIds.length > 0 && { id: { notIn: likedMixIds } }),
       },
@@ -127,7 +127,7 @@ export async function getRecommendations(
     // Tracks des artistes suivis
     prisma.track.findMany({
       where: {
-        status: "PUBLISHED",
+        ...publicContent,
         ...(followedArtistUserIds.length > 0 && {
           artist: { userId: { in: followedArtistUserIds } },
         }),
@@ -142,6 +142,7 @@ export async function getRecommendations(
     followedArtistUserIds.length > 0
       ? prisma.artistProfile.findMany({
           where: {
+            ...activeArtist,
             userId: { notIn: followedArtistUserIds },
             ...(likedGenres.length > 0 && { genres: { hasSome: likedGenres } }),
           },
@@ -150,6 +151,7 @@ export async function getRecommendations(
           select: artistSelect,
         })
       : prisma.artistProfile.findMany({
+          where: activeArtist,
           take: 10,
           orderBy: { followerCount: "desc" },
           select: artistSelect,
@@ -204,6 +206,7 @@ export async function getSimilarArtists(
 
   const artists = await prisma.artistProfile.findMany({
     where: {
+      ...activeArtist,
       id: { not: source.id },
       userId: followedIds.length > 0 ? { notIn: followedIds } : undefined,
       OR: [
@@ -278,7 +281,7 @@ export async function getSimilarMixes(
   const mixes = await prisma.mix.findMany({
     where: {
       id: { not: source.id },
-      status: "PUBLISHED",
+      ...publicContent,
       genre: source.genre,
       ...(listenedIds.length > 0 && { id: { notIn: listenedIds } }),
     },
@@ -348,7 +351,7 @@ export async function getTrendingByCountry(
   }
 
   const mixes = await prisma.mix.findMany({
-    where: { id: { in: topIds }, status: "PUBLISHED" },
+    where: { id: { in: topIds }, ...publicContent },
     select: mixSelect,
   });
 
@@ -468,7 +471,7 @@ export async function getForYouFeed(
       ? prisma.mix.findMany({
           where: {
             status: "PUBLISHED",
-            artist: { userId: { in: followedUserIds } },
+            artist: { ...activeArtist, userId: { in: followedUserIds } },
             ...(excludeIds.length > 0 && { id: { notIn: excludeIds } }),
           },
           take: Math.ceil(limit * 0.5),
@@ -481,12 +484,13 @@ export async function getForYouFeed(
     basedOnListens
       ? prisma.mix.findMany({
           where: {
-            status: "PUBLISHED",
+            ...publicContent,
             genre: { in: topGenres as never[] },
             ...(excludeIds.length > 0 && { id: { notIn: excludeIds } }),
-            ...(followedUserIds.length > 0 && {
-              artist: { userId: { notIn: followedUserIds } },
-            }),
+            artist: {
+              ...activeArtist,
+              ...(followedUserIds.length > 0 && { userId: { notIn: followedUserIds } }),
+            },
           },
           take: Math.ceil(limit * 0.5),
           orderBy: [{ playCount: "desc" }, { publishedAt: "desc" }],
@@ -497,6 +501,7 @@ export async function getForYouFeed(
     // Artistes à découvrir (non suivis, genres similaires)
     prisma.artistProfile.findMany({
       where: {
+        ...activeArtist,
         ...(followedUserIds.length > 0 && {
           userId: { notIn: followedUserIds },
         }),

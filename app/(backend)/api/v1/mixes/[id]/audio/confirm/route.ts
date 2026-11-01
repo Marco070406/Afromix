@@ -1,11 +1,12 @@
-import { cdnUrl, deleteObject, isStorageConfigured } from "@/lib/storage";
+import { cdnUrl, deleteObject, isStorageConfigured, objectExists } from "@/lib/storage";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, badRequest, unauthorized, forbidden, notFound, serverError } from "@/lib/response";
 import { z } from "zod";
+import { storageKey } from "@/lib/validations/upload";
 
 const confirmSchema = z.object({
-  key: z.string().min(1).regex(/^mixes\//, "La clé doit être dans le dossier mixes/"),
+  key: storageKey("mixes"),
   durationSec: z.number().int().positive().optional(),
 });
 
@@ -51,6 +52,8 @@ export async function POST(
   const { key, durationSec } = parsed.data;
 
   try {
+    if (!(await objectExists(key))) return badRequest("Fichier introuvable : relancez l'envoi.");
+
     // Supprime l'ancien fichier audio s'il existe
     if (mix.audioKey && mix.audioKey !== key) {
       await deleteObject(mix.audioKey);

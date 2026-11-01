@@ -348,6 +348,23 @@ export async function deleteObject(key: string): Promise<void> {
   }
 }
 
+/** Clé d'un fichier hébergé chez nous, ou null pour une image externe (données de démo…). */
+function keyFromUrl(url: string): string | null {
+  const base = isS3Configured()
+    ? CDN_BASE.replace(/\/$/, "")
+    : isBlobConfigured()
+      ? blobBaseUrl()
+      : "/uploads";
+  return url.startsWith(`${base}/`) ? url.slice(base.length + 1) : null;
+}
+
+/** Supprime le fichier derrière une URL enregistrée, s'il nous appartient. Évite de remplir le quota. */
+export async function deleteStoredUrl(url: string | null | undefined): Promise<void> {
+  if (!url) return;
+  const key = keyFromUrl(url);
+  if (key) await deleteObject(key);
+}
+
 // ─── Vérification d'existence ─────────────────────────────────────────────────
 
 export async function objectExists(key: string): Promise<boolean> {

@@ -84,7 +84,7 @@ export default function LoginPage() {
             <Input
               label={tr("Adresse Email", "Email address")}
               type="email"
-              placeholder="dj@afromix.io"
+              placeholder="vous@exemple.com"
               leftIcon={<Mail className="h-4 w-4" />}
               error={errors.email?.message}
               {...register("email")}
