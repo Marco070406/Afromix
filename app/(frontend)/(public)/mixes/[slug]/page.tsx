@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -30,12 +30,16 @@ import { MixCommentsThread } from "@/app/(frontend)/components/comments/mix-comm
 import { formatDuration, formatCount, timeAgo, genreLabel, MIX_TYPE_LABELS, cn } from "@/app/(frontend)/lib/utils";
 import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
 import { MixTracklist } from "@/app/(frontend)/components/player/mix-tracklist";
+import { ShareMixDialog } from "@/app/(frontend)/components/share/share-mix-dialog";
+import { parseTimeParam, timestamp } from "@/app/(frontend)/lib/time-param";
 
 export default function MixDetailPage() {
   const { tr, language } = useI18n();
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
-  const { play, track: currentTrack, isPlaying, togglePlay } = usePlayer();
+  const { play, track: currentTrack, isPlaying, togglePlay, currentTime } = usePlayer();
+  const searchParams = useSearchParams();
+  const [shareOpen, setShareOpen] = useState(false);
   const { isLiked, toggleLike, isPending: likePending } = useLikedMixIds();
   const { openAddToPlaylist } = useAddToPlaylist();
   const [activeTab, setActiveTab] = useState<"tracklist" | "comments">("tracklist");
@@ -78,6 +82,9 @@ export default function MixDetailPage() {
   const mix = data.data;
   const isCurrentMix = currentTrack?.id === mix.id;
   const liked = isLiked(mix.id);
+  // Lien partagé à un moment précis (?t=750 ou ?t=12:30), ignoré s'il dépasse la fin du mix
+  const requestedStart = parseTimeParam(searchParams.get("t"));
+  const sharedStart = requestedStart && (!mix.durationSec || requestedStart < mix.durationSec) ? requestedStart : null;
 
   const handlePlay = () => {
     if (!mix.audioUrl) { toast.error(tr("L'audio de ce mix n'est pas encore disponible", "This mix's audio isn't available yet")); return; }
@@ -86,17 +93,7 @@ export default function MixDetailPage() {
       coverUrl: mix.coverUrl, durationSec: mix.durationSec, artist: mix.artist, type: "mix",
     };
     if (isCurrentMix) togglePlay();
-    else play(pt);
-  };
-
-  const handleShare = async () => {
-    const url = `${window.location.origin}/mixes/${mix.slug}`;
-    if (navigator.share) {
-      await navigator.share({ title: mix.title, url });
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success(tr("Lien copié !", "Link copied!"));
-    }
+    else play(pt, undefined, sharedStart ?? undefined);
   };
 
   return (
@@ -138,7 +135,13 @@ export default function MixDetailPage() {
           {/* Actions */}
           <div className="flex items-center gap-3 flex-wrap">
             <Button onClick={handlePlay} size="lg" className="gap-2" disabled={!mix.audioUrl}>
-              {isCurrentMix && isPlaying ? <><Pause className="h-5 w-5" />{tr("Pause", "Pause")}</> : <><Play className="h-5 w-5" />{tr("Écouter", "Play")}</>}
+              {isCurrentMix && isPlaying ? (
+                <><Pause className="h-5 w-5" />{tr("Pause", "Pause")}</>
+              ) : !isCurrentMix && sharedStart ? (
+                <><Play className="h-5 w-5" />{tr(`Écouter à partir de ${timestamp(sharedStart)}`, `Play from ${timestamp(sharedStart)}`)}</>
+              ) : (
+                <><Play className="h-5 w-5" />{tr("Écouter", "Play")}</>
+              )}
             </Button>
             <Button
               variant="secondary"
@@ -166,7 +169,7 @@ export default function MixDetailPage() {
             >
               <ListPlus className="h-5 w-5" />
             </Button>
-            <Button variant="secondary" size="icon" onClick={handleShare} aria-label={tr("Partager", "Share")}>
+            <Button variant="secondary" size="icon" onClick={() => setShareOpen(true)} aria-label={tr("Partager", "Share")}>
               <Share2 className="h-5 w-5" />
             </Button>
           </div>
@@ -213,6 +216,14 @@ export default function MixDetailPage() {
         <div className="mb-8">
           <MixTracklist mix={mix} />
         </div>
+      )}
+
+      {shareOpen && (
+        <ShareMixDialog
+          mix={mix}
+          defaultSec={isCurrentMix ? currentTime : sharedStart}
+          onClose={() => setShareOpen(false)}
+        />
       )}
 
       {/* Comments */}

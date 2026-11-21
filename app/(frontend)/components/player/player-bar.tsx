@@ -28,6 +28,7 @@ import { useAuth } from "@/app/(frontend)/providers/auth-provider";
 import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
 import { FullscreenPlayer } from "@/app/(frontend)/components/player/fullscreen-player";
 import { QueueDrawer } from "@/app/(frontend)/components/player/queue-drawer";
+import { ShareMixDialog } from "@/app/(frontend)/components/share/share-mix-dialog";
 import { formatDuration } from "@/app/(frontend)/lib/utils";
 import { cn } from "@/app/(frontend)/lib/utils";
 import { useLikedMixIds } from "@/app/(frontend)/hooks/use-liked-mix-ids";
@@ -52,6 +53,7 @@ export function PlayerBar() {
     document.documentElement.dataset.player = track ? "on" : "off";
   }, [track]);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverX, setHoverX] = useState(0);
   const [desktopCoverErr, setDesktopCoverErr] = useState(false);
@@ -79,7 +81,12 @@ export function PlayerBar() {
 
   const handleShare = () => {
     if (!track) return;
-    const url = `${window.location.origin}/mixes/${track.slug}`;
+    // Un mix se partage à l'instant en cours ; un morceau n'a pas de page, on partage son artiste
+    if (track.type === "mix") {
+      setIsShareOpen(true);
+      return;
+    }
+    const url = `${window.location.origin}/artists/${track.artist.slug}`;
     if (navigator.share) {
       navigator.share({ title: track.title, url }).catch(() => {});
     } else {
@@ -462,6 +469,14 @@ export function PlayerBar() {
         onToggleLike={handleLike}
         onAddToPlaylist={handleAddToPlaylist}
       />
+
+      {isShareOpen && track?.type === "mix" && (
+        <ShareMixDialog
+          mix={{ slug: track.slug, title: track.title, durationSec: track.durationSec ?? (duration || null) }}
+          defaultSec={currentTime}
+          onClose={() => setIsShareOpen(false)}
+        />
+      )}
 
       {/* ── Queue Drawer ── */}
       <QueueDrawer

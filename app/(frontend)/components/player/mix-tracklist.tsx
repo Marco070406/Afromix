@@ -6,17 +6,10 @@ import { toast } from "sonner";
 import { usePlayer, type PlayerTrack } from "@/app/(frontend)/providers/player-provider";
 import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
 import { cn } from "@/app/(frontend)/lib/utils";
+import { timestamp } from "@/app/(frontend)/lib/time-param";
 import type { MixDetail, TracklistEntry } from "@/types/api";
 
 type TracklistMix = Pick<MixDetail, "id" | "slug" | "title" | "audioUrl" | "coverUrl" | "durationSec" | "artist" | "tracklist">;
-
-/** Horodatage « 1:02:05 » ou « 12:30 », y compris « 0:00 » (formatDuration affiche « --:-- » pour 0). */
-export function timestamp(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.floor(sec % 60).toString().padStart(2, "0");
-  return h > 0 ? `${h}:${m.toString().padStart(2, "0")}:${s}` : `${m}:${s}`;
-}
 
 /** Index du morceau joué à l'instant `time` : le dernier dont le début est atteint, ou -1. */
 export function currentEntryIndex(entries: TracklistEntry[], time: number): number {
