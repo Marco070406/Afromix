@@ -29,18 +29,13 @@ import { discoveryApi } from "@/app/(frontend)/lib/api/discovery";
 import { MixCommentsThread } from "@/app/(frontend)/components/comments/mix-comments-thread";
 import { formatDuration, formatCount, timeAgo, genreLabel, MIX_TYPE_LABELS, cn } from "@/app/(frontend)/lib/utils";
 import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
-
-function formatSeconds(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
+import { MixTracklist } from "@/app/(frontend)/components/player/mix-tracklist";
 
 export default function MixDetailPage() {
   const { tr, language } = useI18n();
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
-  const { play, track: currentTrack, isPlaying, togglePlay, seek } = usePlayer();
+  const { play, track: currentTrack, isPlaying, togglePlay } = usePlayer();
   const { isLiked, toggleLike, isPending: likePending } = useLikedMixIds();
   const { openAddToPlaylist } = useAddToPlaylist();
   const [activeTab, setActiveTab] = useState<"tracklist" | "comments">("tracklist");
@@ -215,34 +210,8 @@ export default function MixDetailPage() {
 
       {/* Tracklist */}
       {activeTab === "tracklist" && (
-        <div className="space-y-1 mb-8">
-          {mix.tracklist.length === 0 ? (
-            <p className="text-sm text-zinc-500 py-4">{tr("Pas de tracklist disponible pour ce mix.", "No tracklist available for this mix.")}</p>
-          ) : (
-            mix.tracklist.map((entry, i) => (
-              <div
-                key={entry.id}
-                className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/[0.04] transition-colors group cursor-pointer"
-                onClick={() => { if (isCurrentMix && entry.startSec != null) seek(entry.startSec); }}
-              >
-                <span className="w-6 text-xs text-zinc-600 text-right flex-shrink-0">{i + 1}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{entry.title}</p>
-                  <p className="text-xs text-zinc-500 truncate">{entry.artist.stageName}</p>
-                </div>
-                {entry.startSec != null && (
-                  <span className="text-xs text-zinc-600 group-hover:text-purple-400 transition-colors flex-shrink-0">
-                    {formatSeconds(entry.startSec)}
-                  </span>
-                )}
-                {entry.durationSec && (
-                  <span className="text-xs text-zinc-600 w-10 text-right flex-shrink-0">
-                    {formatDuration(entry.durationSec)}
-                  </span>
-                )}
-              </div>
-            ))
-          )}
+        <div className="mb-8">
+          <MixTracklist mix={mix} />
         </div>
       )}
 

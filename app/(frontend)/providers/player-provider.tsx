@@ -35,7 +35,8 @@ interface PlayerState {
 }
 
 interface PlayerActions {
-  play: (track: PlayerTrack, queue?: PlayerTrack[]) => void;
+  /** startAt : position de départ en secondes (ex. un morceau de la tracklist d'un mix) */
+  play: (track: PlayerTrack, queue?: PlayerTrack[], startAt?: number) => void;
   pause: () => void;
   resume: () => void;
   togglePlay: () => void;
@@ -80,6 +81,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const removeGestureListenerRef = useRef<() => void>(() => {});
   const persistRef = useRef<() => void>(() => {});
   const lastSaveRef = useRef(0);
+  // Position de départ demandée par play() : appliquée quand l'audio de ce titre connaît sa durée
+  const startAtRef = useRef<{ trackId: string; sec: number } | null>(null);
+  const loadedTrackIdRef = useRef<string | null>(null);
 
   // Init audio element — une seule fois au mount
   useEffect(() => {
@@ -97,12 +101,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // Délègue à la ref : toujours la version fraîche de handleEnded
     const onEnded = () => handleEndedRef.current();
     const onCanPlay = () => setIsLoading(false);
+    const onLoadedMetadata = () => {
+      const start = startAtRef.current;
+      if (!start || start.trackId !== loadedTrackIdRef.current) return;
+      startAtRef.current = null;
+      audio.currentTime = start.sec;
+      setCurrentTime(start.sec);
+    };
     const onWaiting = () => setIsLoading(true);
 
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("durationchange", onDurationChange);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("canplay", onCanPlay);
+    audio.addEventListener("loadedmetadata", onLoadedMetadata);
     audio.addEventListener("waiting", onWaiting);
 
     return () => {
@@ -111,6 +123,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener("durationchange", onDurationChange);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("canplay", onCanPlay);
+      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
       audio.removeEventListener("waiting", onWaiting);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,10 +167,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     removeGestureListenerRef.current();
   }, []);
 
-  const loadTrack = useCallback((t: PlayerTrack) => {
+  const loadTrack = useCallback((t: PlayerTrack, startAt = 0) => {
     const audio = audioRef.current!;
     cancelPendingResume();
     pendingSeekRef.current = null;
+    // Une position demandée survit au second chargement déclenché par l'effet de file
+    if (startAt > 0) startAtRef.current = { trackId: t.id, sec: startAt };
+    else if (startAtRef.current?.trackId !== t.id) startAtRef.current = null;
+    loadedTrackIdRef.current = t.id;
     setIsLoading(true);
     setTrack(t);
     setCurrentTime(0);
@@ -199,13 +216,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [currentTime, track, isPlaying]);
 
-  const play = useCallback((t: PlayerTrack, q?: PlayerTrack[]) => {
+  const play = useCallback((t: PlayerTrack, q?: PlayerTrack[], startAt?: number) => {
     const newQueue = q ?? [t];
     const idx = newQueue.findIndex((x) => x.id === t.id);
     setQueue(newQueue);
     setQueueIndex(idx >= 0 ? idx : 0);
     setQueueVersion((v) => v + 1); // force reload même si même track
-    loadTrack(t);
+    loadTrack(t, startAt);
   }, [loadTrack]);
 
   const pause = useCallback(() => {

@@ -16,6 +16,8 @@ import {
   Volume2,
   VolumeX,
   ListMusic,
+  ListOrdered,
+  AudioLines,
   ListPlus,
   Music,
   Disc3,
@@ -24,6 +26,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { usePlayer } from "@/app/(frontend)/providers/player-provider";
 import { formatDuration, cn } from "@/app/(frontend)/lib/utils";
 import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
+import { useQuery } from "@tanstack/react-query";
+import { mixesApi } from "@/app/(frontend)/lib/api/mixes";
+import { MixTracklist, useCurrentTracklistEntry } from "@/app/(frontend)/components/player/mix-tracklist";
 
 interface FullscreenPlayerProps {
   isOpen: boolean;
@@ -48,10 +53,23 @@ export function FullscreenPlayer({
     toggleShuffle, cycleRepeat, play,
   } = usePlayer();
 
-  const [activeTab, setActiveTab] = useState<"player" | "queue">("player");
+  const [activeTab, setActiveTab] = useState<"player" | "queue" | "tracklist">("player");
   const [artworkErr, setArtworkErr] = useState(false);
   const [bgErr, setBgErr] = useState(false);
   const progressBarRef = useRef<HTMLDivElement>(null);
+
+  // Détail du mix en cours (même cache que sa page) : sa tracklist alimente l'onglet dédié
+  const isMix = track?.type === "mix";
+  const { data: mixData } = useQuery({
+    queryKey: ["mix", track?.slug],
+    queryFn: () => mixesApi.getBySlug(track!.slug),
+    enabled: isOpen && isMix,
+    staleTime: 5 * 60 * 1000,
+  });
+  const mixDetail = isMix && mixData?.data?.id === track?.id ? mixData.data : undefined;
+  const hasTracklist = (mixDetail?.tracklist.length ?? 0) > 0;
+  const nowInMix = useCurrentTracklistEntry(mixDetail);
+  const tab = activeTab === "tracklist" && !hasTracklist ? "player" : activeTab;
 
   // Close on Escape key
   useEffect(() => {
@@ -147,11 +165,27 @@ export function FullscreenPlayer({
             </div>
 
             <div className="flex items-center gap-2">
+              {hasTracklist && (
+                <button
+                  onClick={() => setActiveTab(tab === "tracklist" ? "player" : "tracklist")}
+                  className={cn(
+                    "h-10 px-3 rounded-full flex items-center gap-1.5 text-xs font-medium transition-colors border",
+                    tab === "tracklist"
+                      ? "bg-purple-600/30 border-purple-500/50 text-purple-300"
+                      : "bg-white/[0.08] border-transparent text-zinc-300 hover:text-white"
+                  )}
+                  aria-label="Tracklist"
+                  aria-pressed={tab === "tracklist"}
+                >
+                  <ListOrdered className="h-4 w-4" />
+                  <span className="hidden sm:inline">Tracklist</span>
+                </button>
+              )}
               <button
-                onClick={() => setActiveTab(activeTab === "player" ? "queue" : "player")}
+                onClick={() => setActiveTab(tab === "queue" ? "player" : "queue")}
                 className={cn(
                   "h-10 px-3 rounded-full flex items-center gap-1.5 text-xs font-medium transition-colors border",
-                  activeTab === "queue"
+                  tab === "queue"
                     ? "bg-purple-600/30 border-purple-500/50 text-purple-300"
                     : "bg-white/[0.08] border-transparent text-zinc-300 hover:text-white"
                 )}
@@ -170,7 +204,17 @@ export function FullscreenPlayer({
 
           {/* Main Content Area */}
           <div className="relative z-10 flex-1 overflow-y-auto px-6 py-6 flex flex-col items-center justify-center max-w-xl mx-auto w-full">
-            {activeTab === "player" ? (
+            {tab === "tracklist" && mixDetail ? (
+              <div className="w-full h-full flex flex-col">
+                <div className="flex items-center justify-between pb-4 border-b border-white/[0.08] mb-4">
+                  <h3 className="text-lg font-bold text-white">Tracklist ({mixDetail.tracklist.length})</h3>
+                  <button onClick={() => setActiveTab("player")} className="text-xs text-purple-400 hover:underline">
+                    {tr("Retour au player", "Back to player")}
+                  </button>
+                </div>
+                <MixTracklist mix={mixDetail} followCurrent className="overflow-y-auto max-h-[60vh] pr-2" />
+              </div>
+            ) : tab === "player" ? (
               <div className="w-full flex flex-col items-center justify-between h-full max-h-[700px]">
                 {/* Artwork */}
                 <div className="relative w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 my-auto rounded-3xl overflow-hidden shadow-2xl shadow-purple-950/40 border border-white/10 group">
@@ -215,6 +259,19 @@ export function FullscreenPlayer({
                       >
                         {track.artist.stageName}
                       </Link>
+                    )}
+                    {nowInMix && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("tracklist")}
+                        className="mt-2 flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 max-w-full"
+                        aria-label={tr("Voir la tracklist", "Show tracklist")}
+                      >
+                        <AudioLines className="h-3.5 w-3.5 flex-shrink-0" aria-hidden />
+                        <span className="truncate">
+                          {tr("En cours", "Now")} : {nowInMix.title} — {nowInMix.artist.stageName}
+                        </span>
+                      </button>
                     )}
                   </div>
 
