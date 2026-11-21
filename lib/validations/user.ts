@@ -54,6 +54,14 @@ export const createBookingInquirySchema = z.object({
   message: z.string().min(10, "Le message doit comporter au moins 10 caractères").max(2000),
 });
 
+/** Décision du DJ sur une demande reçue ; le message accompagne une acceptation ou un refus. */
+export const updateBookingInquirySchema = z.object({
+  status: z.enum(["PENDING", "READ", "ACCEPTED", "DECLINED"]),
+  reply: z.string().max(1000, "1000 caractères maximum").optional(),
+});
+
+export type UpdateBookingInquiryInput = z.infer<typeof updateBookingInquirySchema>;
+
 // ─── Demande de vérification ──────────────────────────────────────────────────
 
 export const requestVerificationSchema = z.object({

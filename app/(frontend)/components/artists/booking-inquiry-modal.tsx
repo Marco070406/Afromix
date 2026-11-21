@@ -29,7 +29,7 @@ interface BookingInquiryModalProps {
   artistAvatarUrl?: string | null;
 }
 
-const EVENT_TYPES = [
+export const EVENT_TYPES = [
   { id: "CLUB", labelFr: "Soirée Club / Discothèque", labelEn: "Club / Nightclub Night" },
   { id: "FESTIVAL", labelFr: "Festival / Concert grand public", labelEn: "Festival / Public Concert" },
   { id: "WEDDING", labelFr: "Mariage / Cérémonie", labelEn: "Wedding / Ceremony" },

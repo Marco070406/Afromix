@@ -10,25 +10,22 @@ import {
   Phone,
   Globe,
   MapPin,
-  Calendar,
   Sparkles,
   Camera,
   Check,
   ExternalLink,
-  MessageSquare,
-  DollarSign,
   ShieldCheck,
   Save,
   Loader2,
   AlertCircle,
   Inbox,
-  Clock,
 } from "lucide-react";
 import { artistsApi, type ArtistProfileUpdate } from "@/app/(frontend)/lib/api/artists";
 import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
 import { toast } from "sonner";
 import { GENRE_LABELS, countryName } from "@/app/(frontend)/lib/utils";
 import { uploadErrorMessage, uploadImage } from "@/app/(frontend)/lib/upload-image";
+import { BookingInquiriesPanel } from "@/app/(frontend)/components/artists/booking-inquiries-panel";
 
 const AFRICAN_COUNTRIES = [
   { code: "CI", name: "Côte d'Ivoire" },
@@ -104,6 +101,8 @@ export function DjProfileEditor() {
 
   const artist = artistData?.data;
   const inquiries = inquiriesData?.data ?? [];
+  // Le compteur de l'onglet ne montre que les nouvelles demandes, pas l'historique
+  const pendingInquiries = inquiries.filter((i) => i.status === "PENDING").length;
 
   // Remplit le formulaire quand le profil serveur arrive ou change (ajustement pendant le rendu)
   const [syncedArtist, setSyncedArtist] = useState<typeof artist | null>(null);
@@ -402,10 +401,10 @@ export function DjProfileEditor() {
             },
             {
               id: "inquiries" as const,
-              labelFr: `Demandes reçues (${inquiries.length})`,
-              labelEn: `Inquiries (${inquiries.length})`,
+              labelFr: `Demandes reçues (${pendingInquiries})`,
+              labelEn: `Inquiries (${pendingInquiries})`,
               icon: Inbox,
-              badge: inquiries.length,
+              badge: pendingInquiries,
             },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -788,155 +787,7 @@ export function DjProfileEditor() {
       )}
 
       {/* Tab 3: Demandes de booking reçues */}
-      {activeTab === "inquiries" && (
-        <div className="rounded-3xl bg-[#111318] border border-white/[0.08] p-6 sm:p-8 space-y-6">
-          <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Inbox className="h-4 w-4 text-purple-400" />
-              <span>{language === "fr" ? "Demandes de booking reçues" : "Received Booking Inquiries"}</span>
-            </h3>
-            <p className="text-xs text-zinc-400 mt-1">
-              {language === "fr"
-                ? tr("Retrouvez ici les messages envoyés par les organisateurs d'événements et fans via votre profil public.", "Messages from event organisers and fans sent through your public profile appear here.")
-                : "Messages sent by event organizers and fans from your public profile."}
-            </p>
-          </div>
-
-          {inquiriesLoading ? (
-            <div className="p-8 text-center text-zinc-400">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-500" />
-            </div>
-          ) : inquiries.length === 0 ? (
-            <div className="p-12 rounded-2xl bg-white/[0.02] border border-white/[0.06] text-center space-y-3">
-              <MessageSquare className="h-10 w-10 text-zinc-600 mx-auto" />
-              <p className="text-sm font-semibold text-white">
-                {language === "fr" ? "Aucune demande reçue pour l'instant" : "No inquiries yet"}
-              </p>
-              <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                {language === "fr"
-                  ? "Partagez votre profil public AfroMix pour recevoir des propositions de clubs, mariages et festivals !"
-                  : "Share your public AfroMix profile to start receiving booking requests!"}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {inquiries.map((inq) => {
-                const dateFormatted = inq.eventDate
-                  ? new Date(inq.eventDate).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })
-                  : null;
-
-                const receivedAt = new Date(inq.createdAt).toLocaleDateString(
-                  language === "fr" ? "fr-FR" : "en-US",
-                  { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }
-                );
-
-                return (
-                  <div
-                    key={inq.id}
-                    className="p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-purple-500/30 transition-all space-y-3"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                      <span className="relative h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-brand-gradient flex items-center justify-center text-sm font-bold text-white">
-                        {inq.sender?.profile?.avatarUrl ? (
-                          <Image src={inq.sender.profile.avatarUrl} alt="" fill sizes="40px" className="object-cover" />
-                        ) : (
-                          inq.senderName[0]?.toUpperCase()
-                        )}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-white">{inq.senderName}</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
-                            {inq.eventType}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-zinc-400 mt-1">
-                          <a
-                            href={`mailto:${inq.senderEmail}`}
-                            className="hover:text-purple-400 transition-colors flex items-center gap-1"
-                          >
-                            <Mail className="h-3 w-3" />
-                            {inq.senderEmail}
-                          </a>
-                          {inq.senderPhone && (
-                            <a
-                              href={`tel:${inq.senderPhone}`}
-                              className="hover:text-emerald-400 transition-colors flex items-center gap-1"
-                            >
-                              <Phone className="h-3 w-3" />
-                              {inq.senderPhone}
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                      </div>
-
-                      <span className="text-[11px] text-zinc-500 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {receivedAt}
-                      </span>
-                    </div>
-
-                    {/* Metadata tags */}
-                    <div className="flex flex-wrap gap-3 text-xs text-zinc-400">
-                      {dateFormatted && (
-                        <span className="inline-flex items-center gap-1 bg-white/[0.04] px-2.5 py-1 rounded-lg">
-                          <Calendar className="h-3.5 w-3.5 text-purple-400" />
-                          <span>{dateFormatted}</span>
-                        </span>
-                      )}
-                      {inq.eventCity && (
-                        <span className="inline-flex items-center gap-1 bg-white/[0.04] px-2.5 py-1 rounded-lg">
-                          <MapPin className="h-3.5 w-3.5 text-pink-400" />
-                          <span>{inq.eventCity}</span>
-                        </span>
-                      )}
-                      {inq.budget && (
-                        <span className="inline-flex items-center gap-1 bg-white/[0.04] px-2.5 py-1 rounded-lg">
-                          <DollarSign className="h-3.5 w-3.5 text-emerald-400" />
-                          <span>{inq.budget}</span>
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Message content */}
-                    <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed bg-black/30 p-3 rounded-xl border border-white/[0.04]">
-                      {inq.message}
-                    </p>
-
-                    {/* Reply buttons */}
-                    <div className="flex items-center gap-2 pt-1">
-                      <a
-                        href={`mailto:${inq.senderEmail}?subject=Re:%20Votre%20demande%20de%20booking%20AfroMix`}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition-colors"
-                      >
-                        <Mail className="h-3.5 w-3.5" />
-                        <span>{language === "fr" ? "Répondre par Email" : "Reply by Email"}</span>
-                      </a>
-                      {inq.senderPhone && (
-                        <a
-                          href={`https://wa.me/${inq.senderPhone.replace(/[^0-9]/g, "")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
-                        >
-                          <Phone className="h-3.5 w-3.5" />
-                          <span>WhatsApp</span>
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {activeTab === "inquiries" && <BookingInquiriesPanel inquiries={inquiries} isLoading={inquiriesLoading} />}
     </div>
   );
 }

@@ -33,6 +33,7 @@ import { Button } from "@/app/(frontend)/components/ui/button";
 import { Input } from "@/app/(frontend)/components/ui/input";
 import { authApi } from "@/app/(frontend)/lib/api/auth";
 import { DjProfileEditor } from "@/app/(frontend)/components/profile/dj-profile-editor";
+import { SentInquiries } from "@/app/(frontend)/components/artists/sent-inquiries";
 import { IMAGE_ACCEPT, uploadErrorMessage, uploadImage } from "@/app/(frontend)/lib/upload-image";
 
 const AFRICAN_COUNTRIES = [
@@ -515,6 +516,8 @@ function ProfileContent() {
               </div>
             </div>
           )}
+
+          <SentInquiries />
 
           {/* Quick links */}
           <div className="grid gap-3">

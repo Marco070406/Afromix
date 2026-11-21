@@ -344,6 +344,15 @@ export async function sendEventApprovalEmail(
 
 // ─── Email Demande de Booking / Contact DJ ────────────────────────────────────
 
+const BOOKING_EVENT_LABELS: Record<string, string> = {
+  CLUB: "Soirée Club / Discothèque",
+  FESTIVAL: "Festival / Concert grand public",
+  WEDDING: "Mariage / Cérémonie",
+  PRIVATE: "Événement privé / Anniversaire",
+  CONCERT: "Concert Live / Première partie",
+  OTHER: "Autre prestation",
+};
+
 function bookingInquiryHtml(
   artistName: string,
   inquiry: {
@@ -357,16 +366,7 @@ function bookingInquiryHtml(
     message: string;
   }
 ): string {
-  const eventTypeLabels: Record<string, string> = {
-    CLUB: "Soirée Club / Discothèque",
-    FESTIVAL: "Festival / Concert grand public",
-    WEDDING: "Mariage / Cérémonie",
-    PRIVATE: "Événement privé / Anniversaire",
-    CONCERT: "Concert Live / Première partie",
-    OTHER: "Autre prestation",
-  };
-
-  const typeLabel = eventTypeLabels[inquiry.eventType] || inquiry.eventType;
+  const typeLabel = BOOKING_EVENT_LABELS[inquiry.eventType] || inquiry.eventType;
 
   return `
 <!DOCTYPE html>
@@ -444,3 +444,74 @@ export async function sendBookingInquiryEmail(
   );
 }
 
+
+// ─── Réponse du DJ à une demande de booking ───────────────────────────────────
+
+export interface BookingResponse {
+  senderName: string;
+  artistName: string;
+  artistSlug: string;
+  accepted: boolean;
+  reply: string | null;
+  eventType: string;
+  eventDate: Date | null;
+}
+
+function bookingResponseHtml(r: BookingResponse): string {
+  const typeLabel = BOOKING_EVENT_LABELS[r.eventType] || r.eventType;
+  const date = r.eventDate
+    ? r.eventDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+  const title = r.accepted ? "Demande acceptée" : "Demande déclinée";
+  const intro = r.accepted
+    ? `<strong style="color:#fff">${esc(r.artistName)}</strong> a accepté votre demande de booking. Le DJ vous recontactera pour finaliser les détails.`
+    : `<strong style="color:#fff">${esc(r.artistName)}</strong> n'est malheureusement pas disponible pour votre demande. D'autres DJs vous attendent sur AfroMix.`;
+
+  return `
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:Inter,Helvetica,Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:40px 20px">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#111;border-radius:12px;overflow:hidden;border:1px solid #222">
+        <tr><td style="background:${r.accepted ? "linear-gradient(135deg,#10B981,#9333EA)" : "linear-gradient(135deg,#9333EA,#DB2777)"};padding:32px;text-align:center">
+          <img src="${APP_URL}/brand/afromix-logo-white.png" alt="AfroMix" width="150" height="48" style="display:block;margin:0 auto 16px;border:0;outline:none;height:48px;width:150px">
+          <h1 style="margin:0;color:#fff;font-size:26px;font-weight:700">${title}</h1>
+          <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">${esc(typeLabel)}${date ? ` · ${esc(date)}` : ""}</p>
+        </td></tr>
+        <tr><td style="padding:36px 32px">
+          <h2 style="margin:0 0 16px;color:#fff;font-size:19px">Bonjour ${esc(r.senderName)},</h2>
+          <p style="margin:0 0 20px;color:#a1a1aa;font-size:15px;line-height:1.6">${intro}</p>
+          ${r.reply ? `<div style="background:#18181b;border:1px solid #27272a;border-radius:8px;padding:20px;margin-bottom:24px">
+            <h3 style="margin:0 0 10px;color:#a855f7;font-size:14px;text-transform:uppercase;letter-spacing:1px">Message de ${esc(r.artistName)}</h3>
+            <p style="margin:0;color:#f4f4f5;font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(r.reply)}</p>
+          </div>` : ""}
+          <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">
+            <a href="${APP_URL}/${r.accepted ? `artists/${encodeURIComponent(r.artistSlug)}` : "artists"}" style="display:inline-block;background:linear-gradient(135deg,#9333EA,#DB2777);color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600">
+              ${r.accepted ? "Voir le profil du DJ" : "Découvrir d'autres DJs"}
+            </a>
+          </td></tr></table>
+        </td></tr>
+        <tr><td style="border-top:1px solid #222;padding:20px 32px;text-align:center">
+          <p style="margin:0;color:#52525b;font-size:12px">AfroMix Booking & Relations Artistes</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendBookingResponseEmail(to: string, response: BookingResponse): Promise<SendResult> {
+  if (!process.env.SMTP_USER && !process.env.RESEND_API_KEY) {
+    return devFallback(`Réponse de booking pour ${to} : ${response.accepted ? "acceptée" : "déclinée"} par ${response.artistName}${response.reply ? ` — ${response.reply}` : ""}`);
+  }
+
+  return sendMail(
+    to,
+    `${response.artistName} ${response.accepted ? "a accepté" : "a décliné"} votre demande de booking — AfroMix`,
+    bookingResponseHtml(response),
+    "Booking response email"
+  );
+}

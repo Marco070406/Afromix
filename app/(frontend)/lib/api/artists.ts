@@ -12,6 +12,20 @@ export interface BookingInquiryData {
   message: string;
 }
 
+export type BookingStatus = "PENDING" | "READ" | "ACCEPTED" | "DECLINED";
+
+/** Demande de booking envoyée par l'utilisateur connecté (GET /inquiries/sent) */
+export interface SentInquiry {
+  id: string;
+  eventType: BookingInquiryData["eventType"];
+  eventDate: string | null;
+  eventCity: string | null;
+  status: BookingStatus;
+  createdAt: string;
+  updatedAt: string;
+  artist: { slug: string; stageName: string; avatarUrl: string | null };
+}
+
 /** Demande de booking reçue par l'artiste (GET /artists/me/inquiries) */
 export interface BookingInquiry {
   id: string;
@@ -23,7 +37,7 @@ export interface BookingInquiry {
   eventCity: string | null;
   budget: string | null;
   message: string;
-  status: "PENDING" | "READ" | "ACCEPTED" | "DECLINED";
+  status: BookingStatus;
   createdAt: string;
   sender: { profile: { avatarUrl: string | null } | null } | null;
 }
@@ -97,6 +111,11 @@ export const artistsApi = {
     api.post<{ id: string; message: string }>(`/artists/${slug}/contact`, data),
 
   getMyInquiries: () => api.get<BookingInquiry[]>("/artists/me/inquiries"),
+
+  updateInquiry: (id: string, input: { status: BookingStatus; reply?: string }) =>
+    api.patch<{ id: string; status: BookingStatus; notified: boolean }>(`/artists/me/inquiries/${id}`, input),
+
+  getSentInquiries: () => api.get<SentInquiry[]>("/inquiries/sent"),
 
   requestVerification: (slug: string) =>
     api.post<{ message: string }>(`/artists/${slug}/verify`),
