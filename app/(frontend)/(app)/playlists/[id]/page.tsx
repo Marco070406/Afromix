@@ -9,6 +9,7 @@ import {
   Pause,
   Lock,
   Globe,
+  Share2,
   Clock,
   ListMusic,
   Trash2,
@@ -351,6 +352,34 @@ export default function PlaylistDetailPage() {
     onError: () => toast.error(tr("Erreur lors du réordonnancement", "Reordering failed")),
   });
 
+  const shareLink = async () => {
+    const url = `${window.location.origin}/playlists/${id}`;
+    if (navigator.share) {
+      navigator.share({ title: data?.data?.title ?? "Playlist", url }).catch(() => {});
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(tr("Lien de la playlist copié !", "Playlist link copied!"));
+    } catch {
+      toast.error(tr("Copie impossible", "Could not copy the link"));
+    }
+  };
+
+  // Une playlist privée devient publique avant d'être partagée (propriétaire uniquement).
+  // Le partage part dès la réponse du serveur, sans attendre le rechargement des données :
+  // le navigateur exige qu'il suive de près le clic.
+  const makePublicMutation = useMutation({
+    mutationFn: () => playlistsApi.update(id, { isPublic: true }),
+    onSuccess: () => {
+      void shareLink();
+      toast.success(tr("Playlist rendue publique", "Playlist is now public"));
+      queryClient.invalidateQueries({ queryKey: ["playlist", id] });
+      queryClient.invalidateQueries({ queryKey: ["playlists"] });
+    },
+    onError: () => toast.error(tr("Impossible de rendre la playlist publique", "Could not make the playlist public")),
+  });
+
   const commitReorder = useCallback(
     (newItems: PlaylistItem[]) => {
       const reorderPayload = newItems.map((item, i) => ({ id: item.id, position: i }));
@@ -480,13 +509,13 @@ export default function PlaylistDetailPage() {
 
   return (
     <div className="px-4 lg:px-8 py-6 max-w-3xl mx-auto">
-      {/* Back link */}
+      {/* Retour : vers ses playlists pour le propriétaire, vers l'exploration pour un visiteur */}
       <Link
-        href="/playlists"
+        href={isOwner ? "/playlists" : "/explore"}
         className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-white transition-colors mb-5"
       >
         <ChevronLeft className="h-4 w-4" />
-        {tr("Mes playlists", "My playlists")}
+        {isOwner ? tr("Mes playlists", "My playlists") : tr("Explorer", "Explore")}
       </Link>
 
       {/* ── Hero Header ── */}
@@ -575,6 +604,23 @@ export default function PlaylistDetailPage() {
                 <Shuffle className="h-4 w-4" />
                 <span className="hidden sm:inline">{tr("Aléatoire", "Shuffle")}</span>
               </Button>
+              {playlist.isPublic ? (
+                <Button variant="secondary" onClick={shareLink} className="gap-2" aria-label={tr("Partager la playlist", "Share the playlist")}>
+                  <Share2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">{tr("Partager", "Share")}</span>
+                </Button>
+              ) : isOwner ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => makePublicMutation.mutate()}
+                  disabled={makePublicMutation.isPending}
+                  className="gap-2"
+                  title={tr("La playlist devient visible par toute personne qui a le lien", "Anyone with the link will be able to see the playlist")}
+                >
+                  <Share2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">{tr("Rendre publique et partager", "Make public and share")}</span>
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>

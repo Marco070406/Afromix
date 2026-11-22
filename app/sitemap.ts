@@ -12,16 +12,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const pages: MetadataRoute.Sitemap = STATIC_PAGES.map((path) => ({ url: `${BASE_URL}${path}` }));
 
   try {
-    const [mixes, artists, events] = await Promise.all([
+    const [mixes, artists, events, playlists] = await Promise.all([
       prisma.mix.findMany({ where: publicContent, select: { slug: true, updatedAt: true } }),
       prisma.artistProfile.findMany({ where: activeArtist, select: { slug: true, updatedAt: true } }),
       prisma.event.findMany({ where: { status: "APPROVED" }, select: { id: true, updatedAt: true } }),
+      prisma.playlist.findMany({ where: { isPublic: true, user: { deletedAt: null } }, select: { id: true, updatedAt: true } }),
     ]);
     return [
       ...pages,
       ...mixes.map((m) => ({ url: `${BASE_URL}/mixes/${m.slug}`, lastModified: m.updatedAt })),
       ...artists.map((a) => ({ url: `${BASE_URL}/artists/${a.slug}`, lastModified: a.updatedAt })),
       ...events.map((e) => ({ url: `${BASE_URL}/events/${e.id}`, lastModified: e.updatedAt })),
+      ...playlists.map((p) => ({ url: `${BASE_URL}/playlists/${p.id}`, lastModified: p.updatedAt })),
     ];
   } catch (err) {
     // Base indisponible : les pages fixes restent indexables

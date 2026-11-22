@@ -11,6 +11,7 @@ import type {
 
 const ownerSelect = {
   id: true,
+  deletedAt: true,
   profile: { select: { displayName: true, avatarUrl: true } },
 } as const;
 
@@ -98,7 +99,8 @@ export async function getPlaylist(
 
   if (!playlist) return null;
   // Playlist privée : seul le propriétaire peut y accéder
-  if (!playlist.isPublic && playlist.userId !== requestingUserId) return null;
+  // Pour les autres : publique, et créateur non suspendu
+  if (playlist.userId !== requestingUserId && (!playlist.isPublic || playlist.user?.deletedAt)) return null;
 
   return playlist;
 }
@@ -181,7 +183,8 @@ export async function getPlaylistWithItems(
   });
 
   if (!playlist) return null;
-  if (!playlist.isPublic && playlist.userId !== requestingUserId) return null;
+  // Pour les autres : publique, et créateur non suspendu
+  if (playlist.userId !== requestingUserId && (!playlist.isPublic || playlist.user?.deletedAt)) return null;
 
   return playlist;
 }
