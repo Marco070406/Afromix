@@ -104,6 +104,8 @@ export interface MixSummary {
 
 export interface MixDetail extends MixSummary {
   status: string;
+  /** Forme d'onde : 500 valeurs de 0 à 100, vide si elle n'a pas encore été calculée */
+  waveform: number[];
   description: string | null;
   tags: string[];
   commentCount: number;

@@ -8,6 +8,8 @@ import { storageKey } from "@/lib/validations/upload";
 const confirmSchema = z.object({
   key: storageKey("mixes"),
   durationSec: z.number().int().positive().optional(),
+  // Forme d'onde calculée dans le navigateur à l'envoi : 500 valeurs de 0 à 100
+  waveform: z.array(z.number().int().min(0).max(100)).length(500).optional(),
 });
 
 // POST /api/v1/mixes/[id]/audio/confirm
@@ -49,7 +51,7 @@ export async function POST(
     return badRequest("Validation error", parsed.error.flatten().fieldErrors);
   }
 
-  const { key, durationSec } = parsed.data;
+  const { key, durationSec, waveform } = parsed.data;
 
   try {
     if (!(await objectExists(key))) return badRequest("Fichier introuvable : relancez l'envoi.");
@@ -68,6 +70,8 @@ export async function POST(
         audioUrl,
         status: "PROCESSING", // l'audio est uploadé, en attente de traitement FFmpeg
         ...(durationSec != null && { durationSec }),
+        // Nouvel audio : l'ancienne forme d'onde ne correspond plus
+        waveform: waveform ?? [],
       },
       select: { id: true, slug: true, audioUrl: true, audioKey: true, status: true, durationSec: true },
     });

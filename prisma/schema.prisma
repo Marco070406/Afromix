@@ -328,6 +328,7 @@ model Mix {
   audioKey      String?       // S3/R2 object key
   audioUrl      String?       // CDN URL
   durationSec   Int?
+  waveform      Int[]         @default([]) // forme d'onde : 500 valeurs de 0 à 100, calculées à l'envoi
   genre         MixGenre      @default(OTHER)
   mixType       MixType       @default(DJ_MIX)
   tags          String[]

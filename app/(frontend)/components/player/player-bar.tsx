@@ -29,6 +29,7 @@ import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
 import { FullscreenPlayer } from "@/app/(frontend)/components/player/fullscreen-player";
 import { QueueDrawer } from "@/app/(frontend)/components/player/queue-drawer";
 import { ShareMixDialog } from "@/app/(frontend)/components/share/share-mix-dialog";
+import { Waveform, useTrackWaveform } from "@/app/(frontend)/components/player/waveform";
 import { formatDuration } from "@/app/(frontend)/lib/utils";
 import { cn } from "@/app/(frontend)/lib/utils";
 import { useLikedMixIds } from "@/app/(frontend)/hooks/use-liked-mix-ids";
@@ -54,6 +55,7 @@ export function PlayerBar() {
   }, [track]);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const waveform = useTrackWaveform(track);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverX, setHoverX] = useState(0);
   const [desktopCoverErr, setDesktopCoverErr] = useState(false);
@@ -296,12 +298,20 @@ export function PlayerBar() {
               </button>
             </div>
 
-            {/* Time readout */}
-            <div className="flex items-center gap-2 text-[11px] font-medium text-zinc-400">
-              <span>{formatDuration(currentTime)}</span>
-              <span>/</span>
-              <span>{formatDuration(track.durationSec ?? duration)}</span>
-            </div>
+            {/* Temps, avec la forme d'onde du mix quand elle existe */}
+            {waveform.length > 0 && duration > 0 ? (
+              <div className="w-full flex items-center gap-3 text-[11px] font-medium text-zinc-400 tabular-nums">
+                <span className="w-10 text-right">{formatDuration(currentTime)}</span>
+                <Waveform values={waveform} currentTime={currentTime} duration={duration} onSeek={seek} bars={110} className="flex-1 h-7" />
+                <span className="w-10">{formatDuration(duration)}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-[11px] font-medium text-zinc-400">
+                <span>{formatDuration(currentTime)}</span>
+                <span>/</span>
+                <span>{formatDuration(track.durationSec ?? duration)}</span>
+              </div>
+            )}
           </div>
 
           {/* Right Column: HQ, Queue, Share, Volume, Fullscreen */}

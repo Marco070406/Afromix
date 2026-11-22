@@ -29,6 +29,7 @@ import { useI18n } from "@/app/(frontend)/providers/i18n-provider";
 import { useQuery } from "@tanstack/react-query";
 import { mixesApi } from "@/app/(frontend)/lib/api/mixes";
 import { MixTracklist, useCurrentTracklistEntry } from "@/app/(frontend)/components/player/mix-tracklist";
+import { Waveform } from "@/app/(frontend)/components/player/waveform";
 
 interface FullscreenPlayerProps {
   isOpen: boolean;
@@ -301,8 +302,11 @@ export function FullscreenPlayer({
                   </div>
                 </div>
 
-                {/* Progress bar */}
+                {/* Progress bar : forme d'onde du mix quand elle existe */}
                 <div className="w-full space-y-2 mt-2">
+                  {mixDetail && mixDetail.waveform.length > 0 && duration > 0 ? (
+                    <Waveform values={mixDetail.waveform} currentTime={currentTime} duration={duration} onSeek={seek} bars={90} className="w-full h-14" />
+                  ) : (
                   <div
                     ref={progressBarRef}
                     className="relative h-2 bg-white/[0.12] rounded-full cursor-pointer group"
@@ -315,6 +319,7 @@ export function FullscreenPlayer({
                       <div className="absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white shadow-md scale-0 group-hover:scale-100 transition-transform" />
                     </div>
                   </div>
+                  )}
 
                   <div className="flex items-center justify-between text-xs font-medium text-zinc-400">
                     <span>{formatDuration(currentTime)}</span>

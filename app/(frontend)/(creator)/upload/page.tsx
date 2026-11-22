@@ -37,6 +37,7 @@ import { GENRE_LABELS, genreLabel, MIX_TYPE_LABELS, formatDuration, cn } from "@
 import { AfromixSymbol } from "@/app/(frontend)/components/brand/afromix-logo";
 import { ApiError } from "@/app/(frontend)/lib/api/client";
 import { checkImage, putWithProgress, uploadErrorMessage } from "@/app/(frontend)/lib/upload-image";
+import { computeWaveform } from "@/app/(frontend)/lib/waveform";
 
 // Formats et taille acceptés par le serveur (lib/storage.ts)
 const AUDIO_TYPES = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/aiff", "audio/x-aiff", "audio/flac", "audio/ogg"];
@@ -106,6 +107,8 @@ export default function UploadPage() {
   const [audioUploading, setAudioUploading] = useState(false);
   const [audioDone, setAudioDone] = useState(false);
   const [detectedDuration, setDetectedDuration] = useState<number | null>(null);
+  // Forme d'onde calculée pendant l'envoi, attendue juste avant la confirmation
+  const waveformRef = useRef<Promise<number[] | null> | null>(null);
 
   // Cover state
   const [coverMode, setCoverMode] = useState<"upload" | "generate">("upload");
@@ -196,6 +199,7 @@ export default function UploadPage() {
     const tempAudio = document.createElement("audio");
     tempAudio.preload = "metadata";
     tempAudio.src = URL.createObjectURL(file);
+    waveformRef.current = computeWaveform(file);
     tempAudio.onloadedmetadata = () => {
       const dur = Math.round(tempAudio.duration);
       if (dur > 0 && !isNaN(dur)) {
@@ -218,7 +222,8 @@ export default function UploadPage() {
       await putWithProgress(uploadUrl, audioFile, setAudioProgress);
 
       // Confirmation de l'audio avec la durée exacte calculée
-      await mixesApi.confirmAudio(mixId, key, detectedDuration ?? undefined);
+      const waveform = (await waveformRef.current) ?? undefined;
+      await mixesApi.confirmAudio(mixId, key, detectedDuration ?? undefined, waveform);
       setAudioDone(true);
       toast.success(language === "fr" ? "Audio transféré avec succès !" : "Audio uploaded successfully!");
     } catch (err) {

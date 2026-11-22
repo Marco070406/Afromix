@@ -370,6 +370,7 @@ function serializeMixDetail(row: any): MixDetail {
   return {
     ...serializeMixSummary(row),
     status: row.status,
+    waveform: row.waveform ?? [],
     description: row.description ?? null,
     tags: row.tags ?? [],
     commentCount: row.commentCount ?? 0,

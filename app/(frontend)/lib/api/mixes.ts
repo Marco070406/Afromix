@@ -60,8 +60,8 @@ export const mixesApi = {
       { contentType }
     ),
 
-  confirmAudio: (id: string, key: string, durationSec?: number) =>
-    api.post<{ audioUrl: string; status: string }>(`/mixes/${id}/audio/confirm`, { key, durationSec }),
+  confirmAudio: (id: string, key: string, durationSec?: number, waveform?: number[]) =>
+    api.post<{ audioUrl: string; status: string }>(`/mixes/${id}/audio/confirm`, { key, durationSec, waveform }),
 
   // Cover upload
   presignCover: (id: string, contentType: string) =>
